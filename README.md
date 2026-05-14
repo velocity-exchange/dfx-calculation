@@ -59,9 +59,9 @@ Splitting phases means re-pricing against a different timestamp is cheap
 
 Two CSV schemas are accepted by the loader (`lib/oracle-csv.ts`):
 
-| schema | columns                                                | how market type is determined        |
-| ------ | ------------------------------------------------------ | ------------------------------------ |
-| A      | `market_type,market_index,oracle_price[,error]`        | explicit `market_type` column        |
+| schema | columns                                                             | how market type is determined            |
+| ------ | ------------------------------------------------------------------- | ---------------------------------------- |
+| A      | `market_type,market_index,oracle_price[,error]`                     | explicit `market_type` column            |
 | B      | `market_index,market_symbol,oracle_price` (the bundled pyth format) | symbol ends in `-PERP` → perp, else spot |
 
 ## Run
@@ -81,7 +81,7 @@ bun ./snapshot.ts \
 bun ./revalue.ts \
   --snapshot ./out/base_snapshot.json \
   --spot-oracle-csv ./oracle-prices/pyth_oracle_prices-160600.csv \
-  --perp-oracle-csv ./oracle-prices/pyth_oracle_prices-160600.csv \
+  --perp-oracle-csv ./oracle-prices/pyth_oracle_prices-183100.csv \
   --output ./out/authority_notional.csv
 ```
 
