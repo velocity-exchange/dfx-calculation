@@ -20,27 +20,20 @@ import { fileURLToPath } from "node:url";
 import { Decimal } from "decimal.js";
 import { BN } from "@drift-labs/sdk";
 
-import { computeEquityTotals } from "./lib/allocate-shares.ts";
-import type {
-  ShareRowScaled,
-  VaultComponent,
-} from "./lib/types.ts";
-
 import { loadOracleCloseByMarket } from "./lib/oracle-csv.ts";
 import {
   stableJsonStringify,
   strToBn,
+  VaultSnapshot,
   type Snapshot,
 } from "./lib/snapshot-types.ts";
 import {
   sumBorrowLendQuote,
   valueBorrowLendAggregate,
-  type PricedBorrowLendAgg,
   type ValueOptions,
 } from "./lib/value-from-snapshot.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const QUOTE_SPOT_MARKET_INDEX = 0;
 const BN0 = new BN(0);
 const SCALE_1E18 = new BN("1000000000000000000");
 
@@ -59,6 +52,14 @@ type CliFlags = {
   perpOracleCsv: string;
   output: string;
   requirePerpOracleCsv: boolean;
+};
+
+type BorrowLendOutput = {
+  spotByMarketQuote: Map<number, BN>;
+  usdcCrossQuote: BN;
+  usdcIsolatedQuote: BN;
+  unrealizedPnlQuote: BN;
+  total: BN;
 };
 
 function getFlag(name: string): string | undefined {
@@ -82,47 +83,7 @@ function quoteToUsdFixed6(q: BN): string {
   return new Decimal(q.toString(10)).div(new Decimal(1_000_000)).toFixed(6);
 }
 
-function buildVaultComponents(priced: PricedBorrowLendAgg): VaultComponent[] {
-  const components: VaultComponent[] = [];
-
-  // Non-quote spot markets, one component per market.
-  const spotEntries = [...priced.spotByMarketQuote.entries()].sort(
-    (a, b) => a[0] - b[0],
-  );
-  for (const [marketIndex, value] of spotEntries) {
-    if (value.eq(BN0)) continue;
-    components.push({
-      componentType: "spot",
-      marketIndex,
-      balance: "",
-      value,
-    });
-  }
-
-  // Combined USDC component (cross + isolated). Mirrors valueVaultUser.
-  const combinedUsdc = priced.usdcCrossQuote.add(priced.usdcIsolatedQuote);
-  if (!combinedUsdc.eq(BN0)) {
-    components.push({
-      componentType: "spot",
-      marketIndex: QUOTE_SPOT_MARKET_INDEX,
-      balance: "",
-      value: combinedUsdc,
-    });
-  }
-
-  if (!priced.unrealizedPnlQuote.eq(BN0)) {
-    components.push({
-      componentType: "unrealized_pnl",
-      marketIndex: QUOTE_SPOT_MARKET_INDEX,
-      balance: "",
-      value: priced.unrealizedPnlQuote,
-    });
-  }
-
-  return components;
-}
-
-async function main(): Promise<void> {
+const setupProcess = (): { flags: CliFlags; snapshot: Snapshot } => {
   const flags: CliFlags = {
     snapshot:
       getFlag("--snapshot") ??
@@ -160,6 +121,13 @@ async function main(): Promise<void> {
     } perpMarkets=${Object.keys(snapshot.perpMarkets).length}`,
   );
 
+  return { flags, snapshot };
+};
+
+const loadOracles = (
+  flags: CliFlags,
+  snapshot: Snapshot,
+): Omit<ValueOptions, "contextLabel"> => {
   const spotPricesByMarket = loadOracleCloseByMarket(
     flags.spotOracleCsv,
     "spot",
@@ -175,28 +143,21 @@ async function main(): Promise<void> {
     `Perp oracle CSV: ${flags.perpOracleCsv} (${perpOracleByMarket.size} markets)`,
   );
 
-  const valueOpts: Omit<ValueOptions, "contextLabel"> = {
+  return {
     spotPricesByMarket,
     perpOracleByMarket,
     spotMarkets: snapshot.spotMarkets,
     perpMarkets: snapshot.perpMarkets,
     requirePerpOracleCsv: flags.requirePerpOracleCsv,
   };
+};
 
-  // -------------------------
-  // Per-authority borrow/lend pricing.
-  // -------------------------
-  type BlOut = {
-    spotByMarketQuote: Map<number, BN>;
-    usdcCrossQuote: BN;
-    usdcIsolatedQuote: BN;
-    unrealizedPnlQuote: BN;
-    total: BN;
-  };
-  const borrowLendByAuthority = new Map<string, BlOut>();
-  for (const [authority, agg] of Object.entries(
-    snapshot.borrowLendByAuthority,
-  )) {
+const priceBorrowLendByAuthority = (
+  borrowLendAuthoritySnapshots: Snapshot["borrowLendByAuthority"],
+  valueOpts: Omit<ValueOptions, "contextLabel">,
+): Map<string, BorrowLendOutput> => {
+  const borrowLendByAuthority = new Map<string, BorrowLendOutput>();
+  for (const [authority, agg] of Object.entries(borrowLendAuthoritySnapshots)) {
     const priced = valueBorrowLendAggregate(agg, {
       ...valueOpts,
       contextLabel: `authority=${authority}`,
@@ -206,45 +167,39 @@ async function main(): Promise<void> {
       total: sumBorrowLendQuote(priced),
     });
   }
+  return borrowLendByAuthority;
+};
 
-  // -------------------------
-  // Vault allocation.
-  // -------------------------
+const allocateVaultsByAuthority = (
+  vaultSnapshots: VaultSnapshot[],
+  valueOpts: Omit<ValueOptions, "contextLabel">,
+): Map<string, Map<string, BN>> => {
   const vaultsByAuthority = new Map<string, Map<string, BN>>();
-  for (const v of snapshot.vaults) {
+  for (const v of vaultSnapshots) {
     if (!v.vaultUserPositions) continue;
 
     const priced = valueBorrowLendAggregate(v.vaultUserPositions, {
       ...valueOpts,
       contextLabel: `vault=${v.vault_pubkey}`,
     });
-    const components = buildVaultComponents(priced);
-    if (components.length === 0) continue;
+    const vaultEquityValueTotal = sumBorrowLendQuote(priced);
+    if (vaultEquityValueTotal.eq(BN0)) continue;
 
-    const scaledShares: ShareRowScaled[] = v.shareRows.map((r) => {
+    for (const r of v.shareRows) {
       const totalSharesRaw = strToBn(r.totalSharesRaw);
       // Defensive override: older snapshots wrote shareFractionScaled=0 for
       // the manager row when totalShares==0, dropping any residual vault
       // value (e.g. last depositor withdrew, lending interest accrued
-      // afterward). Force the manager row to 100% in that case so the
-      // residual flows to them.
+      // afterward or perp positions accrued positive PnL). Force the manager
+      // row to 100% in that case so the residual flows to them.
       const shareFractionScaled =
         totalSharesRaw.isZero() && r.isManager
           ? SCALE_1E18
           : strToBn(r.shareFractionScaled);
-      return {
-        depositorAuthority: r.depositorAuthority,
-        depositorAccount: r.depositorAccount,
-        isManager: r.isManager,
-        shareSource: r.shareSource,
-        sharesRaw: strToBn(r.sharesRaw),
-        totalSharesRaw,
-        shareFractionScaled,
-      };
-    });
+      const depositorEquityValue = shareFractionScaled
+        .mul(vaultEquityValueTotal)
+        .div(SCALE_1E18);
 
-    const eq = computeEquityTotals({ components, shares: scaledShares });
-    for (const r of eq.rows) {
       const auth = r.depositorAuthority;
       let byVault = vaultsByAuthority.get(auth);
       if (!byVault) {
@@ -253,14 +208,19 @@ async function main(): Promise<void> {
       }
       byVault.set(
         v.vault_pubkey,
-        (byVault.get(v.vault_pubkey) ?? BN0).add(r.depositorEquityValue),
+        (byVault.get(v.vault_pubkey) ?? BN0).add(depositorEquityValue),
       );
     }
   }
+  return vaultsByAuthority;
+};
 
-  // -------------------------
-  // Final per-authority CSV. Same column schema as authority-notional.ts.
-  // -------------------------
+const writeAuthorityNotionalCsv = (
+  flags: CliFlags,
+  snapshot: Snapshot,
+  borrowLendByAuthority: Map<string, BorrowLendOutput>,
+  vaultsByAuthority: Map<string, Map<string, BN>>,
+) => {
   const vaultAuthorities = new Set(snapshot.vaultAuthorities);
   const blacklistedAuthorities = new Set(snapshot.blacklistedAuthorities);
 
@@ -323,6 +283,29 @@ async function main(): Promise<void> {
   fs.writeFileSync(flags.output, outLines.join("\n") + "\n", "utf8");
   console.log(
     `Wrote ${flags.output} (${authorityList.length} authorities; excluded ${vaultAuthorities.size} vault authorities, ${blacklistedAuthorities.size} blacklisted)`,
+  );
+};
+
+async function main(): Promise<void> {
+  const { flags, snapshot } = setupProcess();
+
+  const valueOpts = loadOracles(flags, snapshot);
+
+  const borrowLendByAuthority = priceBorrowLendByAuthority(
+    snapshot.borrowLendByAuthority,
+    valueOpts,
+  );
+
+  const vaultsByAuthority = allocateVaultsByAuthority(
+    snapshot.vaults,
+    valueOpts,
+  );
+
+  writeAuthorityNotionalCsv(
+    flags,
+    snapshot,
+    borrowLendByAuthority,
+    vaultsByAuthority,
   );
 }
 

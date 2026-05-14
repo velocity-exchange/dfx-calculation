@@ -1,7 +1,5 @@
 import { BN } from "@drift-labs/sdk";
 
-export const SNAPSHOT_VERSION = 1 as const;
-
 // SDK contract type variants (status, contractType, contractTier, ammDirection, marginCalculationMode etc.)
 // are encoded as `{ [variantName]: {} }`. We persist them verbatim as JSON-friendly objects.
 export type SdkVariant = Record<string, unknown>;
@@ -54,17 +52,6 @@ export type BorrowLendAggregateSnapshot = {
   // whose quoteSpotMarketIndex == 0. Always >= 0.
   usdcIsolatedToken: string;
   perpPositions: PerpPositionSnapshot[];
-  /**
-   * Sum of realized perp P&L in quote precision (1e6) over
-   * `realizedPerpPnlWindow`, from forward fill simulation (WAC).
-   */
-  realizedPerpPnlQuoteWindow?: string;
-  realizedPerpPnlWindow?: {
-    startTs: number;
-    endTs: number;
-    /** marketIndex -> quote PnL string (omitted or partial if all zero) */
-    byMarketQuote?: Record<number, string>;
-  };
 };
 
 export type ShareRowSnapshot = {
@@ -90,7 +77,6 @@ export type VaultSnapshot = {
 };
 
 export type Snapshot = {
-  snapshotVersion: typeof SNAPSHOT_VERSION;
   snapshotTimestampUtc: string;
   rpcUrl: string;
   usersJsonPath: string;

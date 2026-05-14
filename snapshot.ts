@@ -5,11 +5,10 @@
  * runs of `revalue.ts` consume this snapshot with arbitrary oracle prices.
  *
  * Run:
- *   bun ./post-hack-accounting/snapshot.ts
- *   bun ./post-hack-accounting/snapshot.ts \
+ *   bun ./snapshot.ts \
  *     --rpc-url <RPC_URL> \
- *     --users-json ./post-hack-accounting/users.json \
- *     --output ./post-hack-accounting/out/base_snapshot.json
+ *     --users-json ./users.json \
+ *     --output ./out/base_snapshot.json
  */
 
 import fs from "node:fs";
@@ -20,15 +19,19 @@ import {
   BN,
   BulkAccountLoader,
   DriftClient,
+  UserAccount,
   decodeUser,
 } from "@drift-labs/sdk";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
 import { readUserAccountsJson } from "./lib/pipeline-json.ts";
 import { withRetry, limitConcurrency, sleep } from "./lib/rate-limit.ts";
-import { discoverVaults } from "./lib/discover-vaults.ts";
-import { listDepositors } from "./lib/list-depositors.ts";
-import { computeShareRows } from "./lib/shares.ts";
+import {
+  type DiscoveredVault,
+  computeShareRows,
+  discoverVaults,
+  listDepositors,
+} from "./lib/vault.ts";
 
 import {
   aggregateUserPositions,
@@ -37,7 +40,6 @@ import {
 import { extractPerpMarket } from "./lib/perp-snapshot.ts";
 import {
   bnToStr,
-  SNAPSHOT_VERSION,
   stableJsonStringify,
   type BorrowLendAggregateSnapshot,
   type PerpMarketSnapshot,
@@ -52,10 +54,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCALE_1E18 = new BN("1000000000000000000");
 const BN0 = new BN(0);
 
-// Mirrors `BLACKLISTED_AUTHORITIES` from authority-notional.ts. The snapshot
-// is a faithful capture of on-chain state — we don't drop anything here.
-// Filtering happens in the revalue phase via this list, which is persisted in
-// the snapshot for traceability.
 const BLACKLISTED_AUTHORITIES: string[] = [
   // attacker's wallets
   "9sG4XYicGtMKe7nSFEkRuAMKJMVb3QPSqKvxBGpb1Rbn",
@@ -114,12 +112,9 @@ function shareFractionScaledFromShares(
   return sharesRaw.mul(SCALE_1E18).div(totalSharesRaw);
 }
 
-async function main(): Promise<void> {
+const setupProcess = () => {
   const flags: CliFlags = {
-    rpcUrl:
-      getFlag("--rpc-url") ??
-      process.env.RPC_URL ??
-      "https://margo-swuxg2-fast-mainnet.helius-rpc.com/",
+    rpcUrl: getFlag("--rpc-url") ?? process.env.RPC_URL ?? "",
     usersJson: getFlag("--users-json") ?? path.resolve(__dirname, "users.json"),
     output:
       getFlag("--output") ??
@@ -132,7 +127,7 @@ async function main(): Promise<void> {
     requestDelayMs: getNumFlag("--request-delay-ms", 0),
     vaultDelayMs: getNumFlag("--vault-delay-ms", 250),
     pauseMs: getNumFlag("--pause-ms", 10_000),
-    chunksBeforePause: getNumFlag("--chunks-before-pause", 50),
+    chunksBeforePause: getNumFlag("--chunks-before-pause", 5),
   };
 
   if (!fs.existsSync(flags.usersJson)) {
@@ -145,7 +140,16 @@ async function main(): Promise<void> {
     `Loaded ${userAccountPubkeys.length} user accounts from ${flags.usersJson}`,
   );
 
-  const connection = new Connection(flags.rpcUrl, "confirmed");
+  return {
+    flags,
+    userAccountPubkeys,
+  };
+};
+
+const setupDriftClient = async (
+  rpcUrl: string,
+): Promise<{ connection: Connection; driftClient: DriftClient }> => {
+  const connection = new Connection(rpcUrl, "confirmed");
   const wallet = new Wallet(Keypair.generate());
   const bulkAccountLoader = new BulkAccountLoader(
     // @ts-ignore
@@ -166,7 +170,15 @@ async function main(): Promise<void> {
   await driftClient.subscribe();
   console.log("DriftClient subscribed");
 
-  // Snapshot all spot/perp market metadata up-front. Cheap and self-contained.
+  return { connection, driftClient };
+};
+
+const snapshotMarkets = (
+  driftClient: DriftClient,
+): {
+  spotMarkets: Record<number, SpotMarketSnapshot>;
+  perpMarkets: Record<number, PerpMarketSnapshot>;
+} => {
   const spotMarkets: Record<number, SpotMarketSnapshot> = {};
   for (const m of driftClient.getSpotMarketAccounts()) {
     spotMarkets[m.marketIndex] = {
@@ -178,28 +190,33 @@ async function main(): Promise<void> {
   for (const m of driftClient.getPerpMarketAccounts()) {
     perpMarkets[m.marketIndex] = extractPerpMarket(m);
   }
+
   console.log(
     `Snapshotted ${Object.keys(spotMarkets).length} spot markets, ${
       Object.keys(perpMarkets).length
     } perp markets`,
   );
 
-  const retryOpts = {
-    retries: flags.retries,
-    baseDelayMs: flags.retryBaseDelayMs,
-    maxDelayMs: flags.retryMaxDelayMs,
-  };
+  return { spotMarkets, perpMarkets };
+};
 
-  console.log("Discovering vaults...");
-  const vaults = await withRetry(() => discoverVaults(connection), retryOpts);
-  const vaultAuthorities = new Set(vaults.map((v) => v.vault_pubkey));
-  console.log(`Found ${vaults.length} vaults`);
-
-  // -------------------------
-  // Borrow/lend aggregation
-  // -------------------------
+/**
+ * Aggregate borrow/lend state (read spot balances) by authority, across all its user accounts.
+ */
+const aggregateBorrowLendByAuthority = async (
+  connection: Connection,
+  driftClient: DriftClient,
+  userAccountPubkeys: PublicKey[],
+  flags: CliFlags,
+  retryOpts: {
+    retries: number;
+    baseDelayMs: number;
+    maxDelayMs: number;
+  },
+  vaultAuthorities: Set<string>,
+): Promise<Map<string, BorrowLendAggregateSnapshot>> => {
   const borrowLendByAuthority = new Map<string, BorrowLendAggregateSnapshot>();
-  const vaultAuthorityUserCount = new Map<string, number>();
+  const vaultAuthorityUserCount = new Map<string, number>(); // for sanity check that each vault authority has only one drift user subaccount
 
   const userChunks: PublicKey[][] = [];
   for (let i = 0; i < userAccountPubkeys.length; i += flags.chunkSize) {
@@ -237,14 +254,15 @@ async function main(): Promise<void> {
           const info = infos[j];
           if (!info?.data) continue;
 
-          let user: any;
+          let user: UserAccount;
           try {
             user = decodeUser(Buffer.from(info.data));
           } catch {
+            console.error(`Failed to decode user: ${chunk[j].toBase58()}`);
             continue;
           }
 
-          const authority = (user.authority as PublicKey).toBase58();
+          const authority = user.authority.toBase58();
 
           if (vaultAuthorities.has(authority)) {
             vaultAuthorityUserCount.set(
@@ -277,7 +295,7 @@ async function main(): Promise<void> {
     `Borrow/lend aggregation complete: ${borrowLendByAuthority.size} authorities`,
   );
 
-  // Sanity: vault authorities should not have more than 1 drift user subaccount.
+  // Sanity Check: vault authorities should not have more than 1 drift user subaccount.
   const badVaultAuthorities = [...vaultAuthorityUserCount.entries()].filter(
     ([, n]) => n > 1,
   );
@@ -287,9 +305,23 @@ async function main(): Promise<void> {
     throw new Error(`Vault authority subaccount sanity failed: ${msg}`);
   }
 
-  // -------------------------
-  // Vault snapshots: depositors, share rows, vault drift-user position state.
-  // -------------------------
+  return borrowLendByAuthority;
+};
+
+/**
+ * Snapshot each vault and their depositors' shares.
+ */
+const processVaultSnapshots = async (
+  connection: Connection,
+  driftClient: DriftClient,
+  vaults: DiscoveredVault[],
+  flags: CliFlags,
+  retryOpts: {
+    retries: number;
+    baseDelayMs: number;
+    maxDelayMs: number;
+  },
+) => {
   const vaultSnapshots: VaultSnapshot[] = [];
   console.log(`Processing ${vaults.length} vaults...`);
 
@@ -357,20 +389,25 @@ async function main(): Promise<void> {
     if (flags.vaultDelayMs > 0) await sleep(flags.vaultDelayMs);
   }
 
-  await driftClient.unsubscribe();
+  return vaultSnapshots;
+};
 
-  // -------------------------
-  // Assemble + write JSON.
-  // -------------------------
+const writeSnapshot = (
+  flags: CliFlags,
+  spotMarkets: Record<number, SpotMarketSnapshot>,
+  perpMarkets: Record<number, PerpMarketSnapshot>,
+  borrowLendByAuthorityMap: Map<string, BorrowLendAggregateSnapshot>,
+  vaultSnapshots: VaultSnapshot[],
+  vaultAuthorities: Set<string>,
+) => {
   const snapshot: Snapshot = {
-    snapshotVersion: SNAPSHOT_VERSION,
     snapshotTimestampUtc: new Date().toISOString(),
     rpcUrl: flags.rpcUrl,
     usersJsonPath: flags.usersJson,
     spotMarkets,
     perpMarkets,
     borrowLendByAuthority: Object.fromEntries(
-      [...borrowLendByAuthority.entries()].sort(([a], [b]) =>
+      [...borrowLendByAuthorityMap.entries()].sort(([a], [b]) =>
         a.localeCompare(b),
       ),
     ),
@@ -386,6 +423,52 @@ async function main(): Promise<void> {
     `Wrote ${flags.output} (${
       Object.keys(snapshot.borrowLendByAuthority).length
     } authorities, ${snapshot.vaults.length} vaults)`,
+  );
+};
+
+async function main(): Promise<void> {
+  const { flags, userAccountPubkeys } = setupProcess();
+  const { connection, driftClient } = await setupDriftClient(flags.rpcUrl);
+
+  const { spotMarkets, perpMarkets } = snapshotMarkets(driftClient);
+
+  const retryOpts = {
+    retries: flags.retries,
+    baseDelayMs: flags.retryBaseDelayMs,
+    maxDelayMs: flags.retryMaxDelayMs,
+  };
+
+  console.log("Discovering vaults...");
+  const vaults = await withRetry(() => discoverVaults(connection), retryOpts);
+  const vaultAuthorities = new Set(vaults.map((v) => v.vault_pubkey));
+  console.log(`Found ${vaults.length} vaults`);
+
+  const borrowLendByAuthorityMap = await aggregateBorrowLendByAuthority(
+    connection,
+    driftClient,
+    userAccountPubkeys,
+    flags,
+    retryOpts,
+    vaultAuthorities,
+  );
+
+  const vaultSnapshots = await processVaultSnapshots(
+    connection,
+    driftClient,
+    vaults,
+    flags,
+    retryOpts,
+  );
+
+  await driftClient.unsubscribe();
+
+  writeSnapshot(
+    flags,
+    spotMarkets,
+    perpMarkets,
+    borrowLendByAuthorityMap,
+    vaultSnapshots,
+    vaultAuthorities,
   );
 }
 

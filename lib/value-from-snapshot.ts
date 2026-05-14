@@ -1,12 +1,5 @@
-import {
-  BN,
-  calculatePositionPNL,
-  getTokenValue,
-} from "@drift-labs/sdk";
-import {
-  rehydratePerpMarket,
-  rehydratePerpPosition,
-} from "./perp-snapshot.ts";
+import { BN, calculatePositionPNL, getTokenValue } from "@drift-labs/sdk";
+import { rehydratePerpMarket, rehydratePerpPosition } from "./perp-snapshot.ts";
 import {
   strToBn,
   type BorrowLendAggregateSnapshot,
@@ -76,8 +69,6 @@ export function valueBorrowLendAggregate(
       price: priceBn,
     });
     const signedValue = signed.isNeg() ? unsignedValue.neg() : unsignedValue;
-    // Match authority-notional.ts behavior: drop entries that price to zero
-    // (e.g. 1-lamport SOL balances that floor to 0 USD).
     if (signedValue.eq(BN0)) continue;
     out.spotByMarketQuote.set(idx, signedValue);
   }
@@ -122,7 +113,9 @@ export function valueBorrowLendAggregate(
     if (requirePerpOracleCsv && missing.length > 0) {
       const uniq = [...new Set(missing)].sort((a, b) => a - b);
       throw new Error(
-        `Missing perp oracle close for perpMarketIndex=[${uniq.join(",")}] (${contextLabel ?? "unknown"})`,
+        `Missing perp oracle close for perpMarketIndex=[${uniq.join(",")}] (${
+          contextLabel ?? "unknown"
+        })`,
       );
     }
     if (!pnlQuote.eq(BN0)) {

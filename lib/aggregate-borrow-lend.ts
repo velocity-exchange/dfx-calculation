@@ -4,12 +4,10 @@ import {
   getSignedTokenAmount,
   getTokenAmount,
   SpotBalanceType,
+  UserAccount,
 } from "@drift-labs/sdk";
 import { extractPerpPosition } from "./perp-snapshot.ts";
-import {
-  bnToStr,
-  type BorrowLendAggregateSnapshot,
-} from "./snapshot-types.ts";
+import { bnToStr, type BorrowLendAggregateSnapshot } from "./snapshot-types.ts";
 
 export const QUOTE_SPOT_MARKET_INDEX = 0;
 const BN0 = new BN(0);
@@ -21,7 +19,7 @@ const BN0 = new BN(0);
  * worth recording (lets the caller skip empty users).
  */
 export function aggregateUserPositions(
-  user: any,
+  user: UserAccount,
   driftClient: DriftClient,
 ): BorrowLendAggregateSnapshot {
   const out: BorrowLendAggregateSnapshot = {
@@ -32,7 +30,7 @@ export function aggregateUserPositions(
   };
 
   // Non-quote spot positions: signed token amount (price-independent).
-  for (const pos of user.spotPositions as any[]) {
+  for (const pos of user.spotPositions) {
     if (pos.marketIndex === QUOTE_SPOT_MARKET_INDEX) continue;
     const spotMarket = driftClient.getSpotMarketAccount(pos.marketIndex);
     if (!spotMarket) continue;
@@ -42,22 +40,16 @@ export function aggregateUserPositions(
       spotMarket,
       pos.balanceType,
     );
-    const signedToken = getSignedTokenAmount(
-      tokenAmtUnsigned,
-      pos.balanceType,
-    );
+    const signedToken = getSignedTokenAmount(tokenAmtUnsigned, pos.balanceType);
     if (signedToken.eq(BN0)) continue;
 
-    const idx: number = pos.marketIndex;
-    const prev = out.spotSignedTokenByMarket[idx];
-    const next = prev ? new BN(prev, 10).add(signedToken) : signedToken;
-    out.spotSignedTokenByMarket[idx] = bnToStr(next);
+    out.spotSignedTokenByMarket[pos.marketIndex] = bnToStr(signedToken);
   }
 
   // USDC cross-margin signed token amount.
   const quoteSpot = driftClient.getSpotMarketAccount(QUOTE_SPOT_MARKET_INDEX);
   if (quoteSpot) {
-    const spot0Pos = (user.spotPositions as any[]).find(
+    const spot0Pos = user.spotPositions.find(
       (p) => p.marketIndex === QUOTE_SPOT_MARKET_INDEX,
     );
     if (spot0Pos) {
@@ -74,7 +66,7 @@ export function aggregateUserPositions(
 
     // Isolated USDC collateral on perp positions whose quoteSpotMarketIndex == 0.
     let isolatedSum = BN0;
-    for (const perp of user.perpPositions as any[]) {
+    for (const perp of user.perpPositions) {
       if (!perp.isolatedPositionScaledBalance?.gt(BN0)) continue;
       const perpMarket = driftClient.getPerpMarketAccount(perp.marketIndex);
       if (
@@ -98,7 +90,7 @@ export function aggregateUserPositions(
 
   // Perp positions: persist all SDK-required fields verbatim. Skip fully-empty
   // positions to keep the snapshot small.
-  for (const perp of user.perpPositions as any[]) {
+  for (const perp of user.perpPositions) {
     const baseAssetAmount: BN = perp.baseAssetAmount ?? BN0;
     const quoteAssetAmount: BN = perp.quoteAssetAmount ?? BN0;
     const lpShares: BN = perp.lpShares ?? BN0;
@@ -116,14 +108,6 @@ export function aggregateUserPositions(
   return out;
 }
 
-export function aggregateIsEmpty(agg: BorrowLendAggregateSnapshot): boolean {
-  if (Object.keys(agg.spotSignedTokenByMarket).length > 0) return false;
-  if (agg.usdcCrossSignedToken !== "0") return false;
-  if (agg.usdcIsolatedToken !== "0") return false;
-  if (agg.perpPositions.length > 0) return false;
-  return true;
-}
-
 /**
  * Merge `b` into `a`. Used when multiple sub-accounts share the same authority
  * (current behavior of authority-notional.ts: pre-aggregate per authority).
@@ -135,7 +119,9 @@ export function mergeAggregate(
   const merged: BorrowLendAggregateSnapshot = {
     spotSignedTokenByMarket: { ...a.spotSignedTokenByMarket },
     usdcCrossSignedToken: bnToStr(
-      new BN(a.usdcCrossSignedToken, 10).add(new BN(b.usdcCrossSignedToken, 10)),
+      new BN(a.usdcCrossSignedToken, 10).add(
+        new BN(b.usdcCrossSignedToken, 10),
+      ),
     ),
     usdcIsolatedToken: bnToStr(
       new BN(a.usdcIsolatedToken, 10).add(new BN(b.usdcIsolatedToken, 10)),
