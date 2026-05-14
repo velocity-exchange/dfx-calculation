@@ -4,11 +4,11 @@
  * CSV that authority-notional.ts produces.
  *
  * Run:
- *   bun ./post-hack-accounting/revalue.ts \
- *     --snapshot ./post-hack-accounting/out/base_snapshot.json \
- *     --spot-oracle-csv ./post-hack-accounting/oracle-prices.csv \
- *     --perp-oracle-csv ./post-hack-accounting/oracle-prices.csv \
- *     --output ./post-hack-accounting/out/authority_notional.csv
+    bun ./revalue.ts \
+      --snapshot ./out/base_snapshot.json \
+      --spot-oracle-csv ./oracle-prices/pyth_oracle_prices-160600.csv \
+      --perp-oracle-csv ./oracle-prices/pyth_oracle_prices-183100.csv \
+      --output ./out/authority_notional.csv
  *
  * The same CSV path may be passed for both --spot-oracle-csv and --perp-oracle-csv.
  * USDC pricing always comes from the spot oracle set.
