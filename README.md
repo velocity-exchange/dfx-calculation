@@ -129,3 +129,99 @@ authority-notional/
 - **Vault sanity check**: phase 1 throws if any vault authority owns more
   than one drift sub-account in `users.json` — the vault-depositor share
   math assumes a 1:1 mapping.
+
+## Recovery pipeline (post-incident backtrack)
+
+Reverse-replays every event in the attack window to recover each affected
+authority's **T0 (pre-incident) state**, then computes a per-authority refund.
+
+```sh
+./run-recovery.sh                # uses existing out/base_snapshot.json
+./run-recovery.sh <RPC_URL>      # fetch a fresh T1 from chain first
+```
+
+Prerequisite: Athena event CSVs must already be in `out/athena/` — see
+[Pulling the Athena event data](#pulling-the-athena-event-data). The
+T0-side oracle close is bundled at `oracle-prices/pyth_oracle_prices-160600.csv`.
+
+### Final output: `out/refunds.csv`
+
+One row per authority where `|refund_usd| ≥ $0.01`:
+
+| column | meaning |
+| --- | --- |
+| `authority` | Solana pubkey |
+| `presence` | `both` / `t0_only` (closed since) / `t1_only` (created during window) |
+| `t0_total`, `t1_total`, `refund_usd` | USD at each side + `t0 − t1` (same oracle both sides) |
+| `t0_borrow_lend`, `t1_borrow_lend`, `refund_borrow_lend` | Own-position component |
+| `t0_vaults`, `t1_vaults`, `refund_vaults` | Vault-share component |
+
+Positive `refund_usd` ⇒ user lost value during the window (owed). Negative
+⇒ user gained value (clawback). Sorted by `|refund_usd|` desc.
+
+### Other artefacts the same run produces
+
+- `recovery_snapshot.csv` — per-authority T0 positions (USDC cross/isolated, signed spot tokens, perp positions with `base/quote/entry/breakEven/settledPnl/lastCumFR/lpShares`). The state to write back on chain.
+- `backtrack_audit_trail.csv` — 62k+ rows, every per-authority reversal (auditable against on-chain txsigs).
+- `backtrack_reconciliation.tsv` — zero-sum proof. Must be all zeros across every asset axis.
+- `backtrack_anomalies.log` — every event that couldn't be bound to a known authority.
+- `market_state_deltas.json` — per-market funding-rate deltas the operator un-applies before restoring user state.
+- `no_restoration_needed.csv` — event-touched entities that need no restoration (closed accounts, etc.), with reason and $ value.
+- `authority_notional_t0.csv`, `authority_notional_t1_at_t0_oracle.csv` — the two per-authority USD CSVs `refunds.csv` is diffed from.
+
+### Re-pricing T0 against a different oracle
+
+`out/base_snapshot_backtracked.json` is itself a fully-formed
+`base_snapshot.json` — drop it into `revalue.ts` against any oracle CSV:
+
+```sh
+bun ./revalue.ts \
+  --snapshot ./out/base_snapshot_backtracked.json \
+  --spot-oracle-csv ./oracle-prices/pyth_oracle_prices-183100.csv \
+  --perp-oracle-csv ./oracle-prices/pyth_oracle_prices-183100.csv \
+  --output ./out/authority_notional_t0_alt.csv
+```
+
+(Note: `refunds.csv` itself requires both sides priced at the **same** oracle
+— that's what `run-recovery.sh` does. Re-pricing against a different oracle
+is only meaningful for the T0-side valuation in isolation.)
+
+See **`METHODOLOGY.md`** for the correctness argument, state-machine diagram,
+and remaining sources of drift.
+
+### Pulling the Athena event data
+
+The six CSVs under `out/athena/` come from Drift's on-chain event archive in
+AWS Athena. Access details:
+
+- AWS profile: `drift-prod` (SSO — run `aws sso login --profile drift-prod` first)
+- Region: `eu-west-1`
+- Database: `mainnet-beta-archive` (catalog `AwsDataCatalog`)
+- Workgroup: `primary` — results land in `s3://mainnet-beta-data-ingestion-bucket/athena/`
+
+Tables → output files for the attack window
+(`year='2026' AND month='04' AND day='01'`):
+
+| Athena table                     | written to                       |
+| -------------------------------- | -------------------------------- |
+| `eventtype_orderactionrecord`    | `out/athena/trades.csv` (filter `action='fill'`) |
+| `eventtype_fundingpaymentrecord` | `out/athena/funding.csv`         |
+| `eventtype_liquidationrecord`    | `out/athena/liq.csv`             |
+| `eventtype_settlepnlrecord`      | `out/athena/settle_pnl.csv`      |
+| `eventtype_swaprecord`           | `out/athena/swap.csv`            |
+| `eventtype_fundingraterecord`    | `out/athena/funding_rate.csv`    |
+
+All tables are partitioned by `year` / `month` / `day` (strings). **Always
+partition-prune** — Drift requested it specifically. Slot bounds for the
+attack window: `410344026 <= slot <= 410366402`.
+
+For `eventtype_liquidationrecord`, wrap the nested structs with
+`CAST(... AS JSON)` (e.g. `liquidateperp`, `liquidatespot`,
+`liquidateborrowforperppnl`, `liquidateperppnlfordeposit`, `perpbankruptcy`,
+`spotbankruptcy`) so the row parser in `lib/backtrack-events.ts` can read
+them.
+
+`aws athena get-table-metadata` on macOS sometimes prints a shape descriptor
+instead of JSON via the shim — call `/usr/local/bin/aws` directly, or pipe
+through `python3 -c "import sys,json; print(json.load(sys.stdin))"` to
+recover the column list.

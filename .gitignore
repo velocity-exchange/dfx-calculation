@@ -4,3 +4,7 @@ bun.lock
 out/*
 !out/.gitkeep
 .env
+# augment-snapshot.ts safety backup
+users.json.bak
+# derived focus-set produced by filter-to-diff-set.ts
+users.changed.json
