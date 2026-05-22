@@ -192,9 +192,24 @@ and remaining sources of drift.
 ### Pulling the Athena event data
 
 The six CSVs under `out/athena/` come from Drift's on-chain event archive in
-AWS Athena. Access details:
+AWS Athena. One-shot driver:
 
-- AWS profile: `drift-prod` (SSO — run `aws sso login --profile drift-prod` first)
+```sh
+aws sso login --profile <your-profile>
+./fetch-athena.sh <your-profile>      # or set AWS_PROFILE and omit the arg
+```
+
+This submits all six queries, polls them to completion, and writes the
+CSVs into `out/athena/`. The rest of this section explains the access
+details and queries so you can run them by hand or adapt the script.
+
+Access details:
+
+- AWS profile: SSO profile with read access to the Drift archive account
+  (`875427118836`). Run `aws sso login --profile <your-profile>` first. The
+  profile name varies per engineer — `drift-prod` is the canonical name in
+  Drift's own infra, but external collaborators may have it under another
+  name (e.g. `velocity-prod`). All commands below assume `$PROFILE` is set.
 - Region: `eu-west-1`
 - Database: `mainnet-beta-archive` (catalog `AwsDataCatalog`)
 - Workgroup: `primary` — results land in `s3://mainnet-beta-data-ingestion-bucket/athena/`
@@ -204,24 +219,78 @@ Tables → output files for the attack window
 
 | Athena table                     | written to                       |
 | -------------------------------- | -------------------------------- |
-| `eventtype_orderactionrecord`    | `out/athena/trades.csv` (filter `action='fill'`) |
+| `eventtype_traderecord`          | `out/athena/trades.csv` (filter `action='fill'`) |
 | `eventtype_fundingpaymentrecord` | `out/athena/funding.csv`         |
 | `eventtype_liquidationrecord`    | `out/athena/liq.csv`             |
 | `eventtype_settlepnlrecord`      | `out/athena/settle_pnl.csv`      |
 | `eventtype_swaprecord`           | `out/athena/swap.csv`            |
 | `eventtype_fundingraterecord`    | `out/athena/funding_rate.csv`    |
 
+> **Heads-up on the trades table.** Fills used to live in
+> `eventtype_orderactionrecord` alongside `place` / `cancel` / `trigger`
+> actions, and older docs / scripts may still reference that. As of mid-2026
+> that table contains only the non-fill actions; the actual fill rows moved
+> to `eventtype_traderecord` (same schema, same `action='fill'` filter).
+> If `trades.csv` comes back with zero data rows, you've hit the old table.
+
 All tables are partitioned by `year` / `month` / `day` (strings). **Always
 partition-prune** — Drift requested it specifically. Slot bounds for the
 attack window: `410344026 <= slot <= 410366402`.
 
-For `eventtype_liquidationrecord`, wrap the nested structs with
-`CAST(... AS JSON)` (e.g. `liquidateperp`, `liquidatespot`,
-`liquidateborrowforperppnl`, `liquidateperppnlfordeposit`, `perpbankruptcy`,
-`spotbankruptcy`) so the row parser in `lib/backtrack-events.ts` can read
-them.
+For `eventtype_liquidationrecord`, six of its columns are nested structs
+that Athena cannot serialize directly to CSV. List every column explicitly
+and wrap these six in `CAST(... AS JSON)` so they emit as JSON strings the
+row parser in `lib/backtrack-events.ts` can read: `liquidateperp`,
+`liquidatespot`, `liquidateborrowforperppnl`, `liquidateperppnlfordeposit`,
+`perpbankruptcy`, `spotbankruptcy`. (`SELECT *` will fail on this table.)
 
-`aws athena get-table-metadata` on macOS sometimes prints a shape descriptor
-instead of JSON via the shim — call `/usr/local/bin/aws` directly, or pipe
-through `python3 -c "import sys,json; print(json.load(sys.stdin))"` to
-recover the column list.
+#### Running a query
+
+Athena is fire-and-forget: you submit, poll for completion, then download
+the result CSV from the workgroup's S3 output bucket. Per table:
+
+```sh
+# 1. Submit — returns a query execution ID (UUID)
+QID=$(aws athena start-query-execution \
+  --query-string "SELECT * FROM eventtype_traderecord
+                  WHERE year='2026' AND month='04' AND day='01'
+                  AND slot BETWEEN 410344026 AND 410366402
+                  AND action='fill'" \
+  --query-execution-context "Database=mainnet-beta-archive,Catalog=AwsDataCatalog" \
+  --work-group primary \
+  --profile "$PROFILE" --region eu-west-1 \
+  --query 'QueryExecutionId' --output text)
+
+# 2. Poll — state cycles QUEUED → RUNNING → SUCCEEDED (or FAILED)
+while :; do
+  state=$(aws athena get-query-execution --query-execution-id "$QID" \
+    --profile "$PROFILE" --region eu-west-1 \
+    --query 'QueryExecution.Status.State' --output text)
+  [[ "$state" == "SUCCEEDED" ]] && break
+  [[ "$state" == "FAILED" || "$state" == "CANCELLED" ]] && exit 1
+  sleep 3
+done
+
+# 3. Download
+aws s3 cp "s3://mainnet-beta-data-ingestion-bucket/athena/$QID.csv" \
+  ./out/athena/trades.csv --profile "$PROFILE" --region eu-west-1
+```
+
+The same submit/poll/download pattern applies to all six tables — submit
+them all up front (Athena runs concurrent queries fine) and the slowest one
+sets the wall-clock floor.
+
+#### Troubleshooting
+
+- **`ForbiddenException: No access`** on any Athena call usually means the
+  `sso_account_id` / `sso_role_name` in `~/.aws/config` don't match what
+  the SSO portal actually grants you. Open
+  `https://<your-org>.awsapps.com/start`, check the account ID + role tile
+  for the Drift archive account, and update the profile to match.
+- **`aws athena get-table-metadata` prints a "shape descriptor"** on macOS
+  via the shim instead of JSON — call `/usr/local/bin/aws` directly, or
+  pipe through `python3 -c "import sys,json; print(json.load(sys.stdin))"`
+  to recover the column list. (Useful when building the explicit column
+  list for the liquidation query.)
+- **Empty `trades.csv`** — see the heads-up above; you're querying the
+  wrong table.
