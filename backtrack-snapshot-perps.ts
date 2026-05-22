@@ -229,7 +229,7 @@ function parseFlags(): CliFlags {
 
 // --- in-memory authority state ---------------------------------------------
 
-type AuthorityState = {
+export type AuthorityState = {
   spotSignedTokenByMarket: Map<number, BN>;
   usdcCrossSignedToken: BN;
   usdcIsolatedToken: BN;
@@ -239,7 +239,7 @@ type AuthorityState = {
   // Carried through but never mutated: vault-attribution etc.
 };
 
-type PerpPositionMut = {
+export type PerpPositionMut = {
   marketIndex: number;
   baseAssetAmount: BN;
   quoteAssetAmount: BN;
@@ -263,7 +263,7 @@ type PerpPositionMut = {
   syntheticallyCreated: boolean; // true if created here because trade hit unknown authority/market
 };
 
-function emptyPerpPos(marketIndex: number): PerpPositionMut {
+export function emptyPerpPos(marketIndex: number): PerpPositionMut {
   return {
     marketIndex,
     baseAssetAmount: BN0.clone(),
@@ -287,7 +287,7 @@ function emptyPerpPos(marketIndex: number): PerpPositionMut {
   };
 }
 
-function emptyAuthorityState(): AuthorityState {
+export function emptyAuthorityState(): AuthorityState {
   return {
     spotSignedTokenByMarket: new Map(),
     usdcCrossSignedToken: BN0.clone(),
@@ -296,7 +296,7 @@ function emptyAuthorityState(): AuthorityState {
   };
 }
 
-function importPerpSnap(p: PerpPositionSnapshot): PerpPositionMut {
+export function importPerpSnap(p: PerpPositionSnapshot): PerpPositionMut {
   return {
     marketIndex: p.marketIndex,
     baseAssetAmount: strToBn(p.baseAssetAmount),
@@ -320,7 +320,7 @@ function importPerpSnap(p: PerpPositionSnapshot): PerpPositionMut {
   };
 }
 
-function exportPerpSnap(p: PerpPositionMut): PerpPositionSnapshot {
+export function exportPerpSnap(p: PerpPositionMut): PerpPositionSnapshot {
   return {
     marketIndex: p.marketIndex,
     baseAssetAmount: bnToStr(p.baseAssetAmount),
@@ -436,7 +436,7 @@ function exportAuthorityStates(
 
 // --- anomaly tracking -------------------------------------------------------
 
-class Anomalies {
+export class Anomalies {
   private rows: string[] = [
     "kind\tslot\ttxsig\tdetail",
   ];
@@ -551,7 +551,7 @@ function emitPool(
 //   filler reward and referrer reward come out of the user's quote / collateral.
 //
 // We apply the EXACT inverse here.
-function reverseTrade(
+export function reverseTrade(
   ev: TradeEvent,
   states: Map<string, AuthorityState>,
   subToAuth: Map<string, string>,
@@ -892,7 +892,7 @@ function reverseTrade(
   // emit. No additional reversal required.
 }
 
-function ensureAuth(
+export function ensureAuth(
   states: Map<string, AuthorityState>,
   auth: string,
 ): AuthorityState {
@@ -912,7 +912,7 @@ function ensureAuth(
 //
 // We reverse the quote delta. The `last_cum_funding_rate` realignment is
 // handled globally at the end (set to current market cum, so pending = 0).
-function reverseFunding(
+export function reverseFunding(
   ev: FundingEvent,
   states: Map<string, AuthorityState>,
   subToAuth: Map<string, string>,
@@ -968,7 +968,7 @@ function reverseFunding(
 //   collateral (USDC cross)    += pnl
 //
 // Reverse: + on quote, - on settledPnl, - on collateral.
-function reverseSettlePnl(
+export function reverseSettlePnl(
   ev: SettlePnlEvent,
   states: Map<string, AuthorityState>,
   subToAuth: Map<string, string>,
@@ -1010,7 +1010,7 @@ function reverseSettlePnl(
 //   protocol takes `fee` (asset varies by route; not in record schema)
 //
 // Reverse principal only. Fee surfaced — usually ≤30bps and small.
-function reverseSwap(
+export function reverseSwap(
   ev: SwapEvent,
   states: Map<string, AuthorityState>,
   subToAuth: Map<string, string>,
@@ -1101,7 +1101,7 @@ function reverseSwap(
 // spotBankruptcy: the bad borrow was zeroed; cum_deposit_interest_delta
 //   socialized it across that spot market's depositors via future interest
 //   accrual. We refund the borrow back into the user's liability balance.
-function reverseLiquidation(
+export function reverseLiquidation(
   ev: LiquidationEvent,
   states: Map<string, AuthorityState>,
   subToAuth: Map<string, string>,

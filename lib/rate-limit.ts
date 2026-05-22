@@ -24,6 +24,10 @@ export function isRetryableRpcError(e: unknown): boolean {
   );
 }
 
+/** Process-wide retry counter — used by callers that want to surface a
+ * "we're being rate-limited" indicator without instrumenting every call site. */
+export const retryStats = { totalRetries: 0 };
+
 export async function withRetry<T>(
   fn: () => Promise<T>,
   opts: { retries: number; baseDelayMs: number; maxDelayMs: number },
@@ -34,12 +38,43 @@ export async function withRetry<T>(
       return await fn();
     } catch (e) {
       if (attempt >= opts.retries || !isRetryableRpcError(e)) throw e;
+      retryStats.totalRetries += 1;
       const jitter = Math.floor(Math.random() * 250);
       const delay =
         Math.min(opts.maxDelayMs, opts.baseDelayMs * 2 ** attempt) + jitter;
       await sleep(delay);
       attempt++;
     }
+  }
+}
+
+/**
+ * Token-paced rate limiter. Each `wait()` reserves the next available slot
+ * `intervalMs` after the last one; concurrent callers serialize by
+ * monotonically advancing the cursor before sleeping. Use to cap an RPC
+ * endpoint's request rate independent of concurrency.
+ *
+ * Example: `new RateLimiter(1000 / 15)` → 15 requests/second.
+ */
+export class RateLimiter {
+  private next = Date.now();
+  constructor(private readonly intervalMs: number) {}
+
+  async wait(): Promise<void> {
+    const now = Date.now();
+    const myTurn = Math.max(this.next, now);
+    this.next = myTurn + this.intervalMs;
+    const delay = myTurn - now;
+    if (delay > 0) await sleep(delay);
+  }
+
+  /** Helper: rate-limit + retry an RPC call in one. */
+  async run<T>(
+    fn: () => Promise<T>,
+    retryOpts: { retries: number; baseDelayMs: number; maxDelayMs: number },
+  ): Promise<T> {
+    await this.wait();
+    return await withRetry(fn, retryOpts);
   }
 }
 

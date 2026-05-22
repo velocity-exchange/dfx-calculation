@@ -148,13 +148,13 @@ T0-side oracle close is bundled at `oracle-prices/pyth_oracle_prices-160600.csv`
 
 One row per authority where `|refund_usd| ≥ $0.01`:
 
-| column | meaning |
-| --- | --- |
-| `authority` | Solana pubkey |
-| `presence` | `both` / `t0_only` (closed since) / `t1_only` (created during window) |
-| `t0_total`, `t1_total`, `refund_usd` | USD at each side + `t0 − t1` (same oracle both sides) |
-| `t0_borrow_lend`, `t1_borrow_lend`, `refund_borrow_lend` | Own-position component |
-| `t0_vaults`, `t1_vaults`, `refund_vaults` | Vault-share component |
+| column                                                   | meaning                                                               |
+| -------------------------------------------------------- | --------------------------------------------------------------------- |
+| `authority`                                              | Solana pubkey                                                         |
+| `presence`                                               | `both` / `t0_only` (closed since) / `t1_only` (created during window) |
+| `t0_total`, `t1_total`, `refund_usd`                     | USD at each side + `t0 − t1` (same oracle both sides)                 |
+| `t0_borrow_lend`, `t1_borrow_lend`, `refund_borrow_lend` | Own-position component                                                |
+| `t0_vaults`, `t1_vaults`, `refund_vaults`                | Vault-share component                                                 |
 
 Positive `refund_usd` ⇒ user lost value during the window (owed). Negative
 ⇒ user gained value (clawback). Sorted by `|refund_usd|` desc.
@@ -189,6 +189,59 @@ is only meaningful for the T0-side valuation in isolation.)
 See **`METHODOLOGY.md`** for the correctness argument, state-machine diagram,
 and remaining sources of drift.
 
+### Single-authority refund from RPC only (`per-authority-refund.ts`)
+
+Self-contained alternative to `run-recovery.sh` for one authority. No Athena
+access required — discovers the authority's drift sub-accounts via
+`getProgramAccounts`, paginates every transaction touching them in the
+attack window via `getSignaturesForAddress`, parses Drift events directly
+from the tx logs, runs the same per-event backtrack the bulk pipeline uses,
+prices both sides at the same T0 oracle, and prints `refund_usd`.
+
+```sh
+bun ./per-authority-refund.ts \
+  --rpc-url $RPC \
+  --authority EibQ2VYpzj18qSdEBkmxWVzde7FzamTxVG9rZyY689Yj
+# → prints t0_total / t1_total / refund_usd
+# → writes out/per_authority/<authority>_audit.csv
+```
+
+Good for spot-checking an entry in `refunds.csv`, debugging one user's
+reversal, or running in environments without Drift Athena access.
+
+**Tuning for rate-limited RPCs.** The script puts every RPC call through a
+global token-paced rate limiter (default 15 req/s) plus exponential-backoff
+retry on 429/5xx. Tune via:
+
+- `--rpc-qps <N>` — global RPC ceiling. Default 15. Drop to 5–8 on free-tier
+  endpoints; 30–50 on premium tiers.
+- `--tx-concurrency <N>` — parallel `getTransaction` workers. Default 25.
+  Has no effect once `--rpc-qps` is saturated, so prefer raising QPS first.
+- `--sig-page-size <N>` — `getSignaturesForAddress` page size. Default 1000.
+  Lower if the endpoint rejects large pages.
+
+Progress lines surface a retry count (`450/9000 (37 retries so far)`) so
+you can see at a glance whether you're being throttled. For very active
+users (thousands of txs in the window) on a free-tier RPC, expect 10–30
+minutes; on a premium tier (50 req/s) the same run takes 2–4 minutes.
+
+**Limitations** vs the bulk pipeline (these are inherent to per-authority
+scope, not bugs):
+
+- **Bankruptcy socialization** is not modeled. A market bankruptcy applies
+  a tiny socialized credit/debit to every holder of that market; computing
+  that for one authority requires global holder state the script doesn't
+  fetch. Bankruptcies in the user's _own_ events are reversed; bankruptcies
+  of _other_ users that touch markets this authority holds are skipped.
+  The script warns if any bankruptcy is present.
+- **Referrer clawback as a referrer.** If this authority received referrer
+  rewards on _other_ users' trades, that rebate lives on those users' txs —
+  which the per-authority script does not fetch. Only rebates appearing on
+  this authority's own txs are clawed back.
+- **Vault depositor share math** is not included (only own-account positions).
+
+For full-pipeline parity, use `out/refunds.csv` from `run-recovery.sh`.
+
 ### Pulling the Athena event data
 
 The six CSVs under `out/athena/` come from Drift's on-chain event archive in
@@ -217,14 +270,14 @@ Access details:
 Tables → output files for the attack window
 (`year='2026' AND month='04' AND day='01'`):
 
-| Athena table                     | written to                       |
-| -------------------------------- | -------------------------------- |
+| Athena table                     | written to                                       |
+| -------------------------------- | ------------------------------------------------ |
 | `eventtype_traderecord`          | `out/athena/trades.csv` (filter `action='fill'`) |
-| `eventtype_fundingpaymentrecord` | `out/athena/funding.csv`         |
-| `eventtype_liquidationrecord`    | `out/athena/liq.csv`             |
-| `eventtype_settlepnlrecord`      | `out/athena/settle_pnl.csv`      |
-| `eventtype_swaprecord`           | `out/athena/swap.csv`            |
-| `eventtype_fundingraterecord`    | `out/athena/funding_rate.csv`    |
+| `eventtype_fundingpaymentrecord` | `out/athena/funding.csv`                         |
+| `eventtype_liquidationrecord`    | `out/athena/liq.csv`                             |
+| `eventtype_settlepnlrecord`      | `out/athena/settle_pnl.csv`                      |
+| `eventtype_swaprecord`           | `out/athena/swap.csv`                            |
+| `eventtype_fundingraterecord`    | `out/athena/funding_rate.csv`                    |
 
 > **Heads-up on the trades table.** Fills used to live in
 > `eventtype_orderactionrecord` alongside `place` / `cancel` / `trigger`
