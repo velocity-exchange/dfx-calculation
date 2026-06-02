@@ -26,8 +26,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
-import { type Snapshot } from "./lib/snapshot-types.ts";
-import { type UserAccountsPayload } from "./lib/pipeline-json.ts";
+import { type Snapshot } from "../lib/snapshot-types.ts";
+import { type UserAccountsPayload } from "../lib/pipeline-json.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

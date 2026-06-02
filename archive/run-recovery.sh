@@ -15,7 +15,10 @@
 # (see README → "Pulling the Athena event data").
 
 set -euo pipefail
-cd "$(dirname "$0")"
+# This script lives in archive/; run from the repo root so ./out,
+# ./oracle-prices and the kept snapshot.ts/revalue.ts all resolve. The
+# recovery-only scripts live alongside this one under archive/.
+cd "$(dirname "$0")/.."
 
 RPC="${1:-}"
 T0_ORACLE="./oracle-prices/pyth_oracle_prices-160600.csv"
@@ -36,18 +39,18 @@ if [ -n "$RPC" ]; then
   echo "==[$n/$STEPS] snapshot.ts — fetch T1 from chain"; n=$((n+1))
   bun ./snapshot.ts --rpc-url "$RPC" --output ./out/base_snapshot.json
   # If backtrack surfaces unknown sub-accounts in out/backtrack_anomalies.log,
-  # run resolve-missing-subaccounts.ts + augment-snapshot.ts then re-run this script.
+  # run archive/resolve-missing-subaccounts.ts + archive/augment-snapshot.ts then re-run this script.
 fi
 
 echo "==[$n/$STEPS] backtrack-snapshot-perps.ts — produce T0"; n=$((n+1))
 if [ -n "$RPC" ]; then
-  bun ./backtrack-snapshot-perps.ts --rpc-url "$RPC"
+  bun ./archive/backtrack-snapshot-perps.ts --rpc-url "$RPC"
 else
-  bun ./backtrack-snapshot-perps.ts --skip-referrer-clawback
+  bun ./archive/backtrack-snapshot-perps.ts --skip-referrer-clawback
 fi
 
 echo "==[$n/$STEPS] build-recovery-snapshot.ts — per-authority T0 positions"; n=$((n+1))
-bun ./build-recovery-snapshot.ts \
+bun ./archive/build-recovery-snapshot.ts \
   --t0 ./out/base_snapshot_backtracked.json \
   --t1 ./out/base_snapshot.json \
   --output ./out/recovery_snapshot.csv
@@ -68,7 +71,7 @@ bun ./revalue.ts \
   --output ./out/authority_notional_t1_at_t0_oracle.csv
 
 echo "==[$n/$STEPS] compute-refunds.ts — emit refunds.csv"
-bun ./compute-refunds.ts \
+bun ./archive/compute-refunds.ts \
   --t0 ./out/authority_notional_t0.csv \
   --t1 ./out/authority_notional_t1_at_t0_oracle.csv \
   --output ./out/refunds.csv

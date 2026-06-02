@@ -62,6 +62,12 @@ export type ShareRowSnapshot = {
   sharesRaw: string;
   totalSharesRaw: string;
   shareFractionScaled: string;
+  // Cost-basis fields used by fee crystallization in revalue.ts. Denominated
+  // in the vault's deposit token (raw units). For the derived manager row,
+  // netDeposits comes from the Vault's manager_net_deposits.
+  netDeposits: string;
+  cumulativeProfitShareAmount: string;
+  profitShareFeePaid: string;
 };
 
 export type VaultSnapshot = {
@@ -71,6 +77,14 @@ export type VaultSnapshot = {
   totalShares: string;
   userShares: string;
   spotMarketIndex: number;
+  // Fee parameters and accrual state. Used by fee crystallization in
+  // revalue.ts to redistribute equity from depositors to manager.
+  managementFee: string; // i64, scaled by PERCENTAGE_PRECISION (1e6)
+  profitShare: number; // u32, scaled by PERCENTAGE_PRECISION (1e6)
+  hurdleRate: number; // u32, scaled by PERCENTAGE_PRECISION (1e6)
+  lastFeeUpdateTs: number; // unix seconds
+  sharesBase: number; // exponent for share decimal places (rebase counter)
+  managerNetDeposits: string; // i64, deposit-token raw units
   shareRows: ShareRowSnapshot[];
   // null when the vault's drift user account couldn't be fetched/decoded.
   vaultUserPositions: BorrowLendAggregateSnapshot | null;

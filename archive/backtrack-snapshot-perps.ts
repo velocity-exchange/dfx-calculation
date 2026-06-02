@@ -78,7 +78,7 @@ import {
 } from "@drift-labs/sdk";
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 
-import { readUserAccountsJson } from "./lib/pipeline-json.ts";
+import { readUserAccountsJson } from "../lib/pipeline-json.ts";
 import {
   bnToStr,
   stableJsonStringify,
@@ -86,7 +86,7 @@ import {
   type BorrowLendAggregateSnapshot,
   type PerpPositionSnapshot,
   type Snapshot,
-} from "./lib/snapshot-types.ts";
+} from "../lib/snapshot-types.ts";
 import {
   loadFundingEvents,
   loadLiquidationEvents,

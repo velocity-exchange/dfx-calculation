@@ -341,6 +341,7 @@ const processVaultSnapshots = async (
       vaultTotalShares: v.totalShares,
       vaultUserShares: v.userShares,
       vaultManagerAuthority: v.manager,
+      vaultManagerNetDeposits: v.managerNetDeposits,
       vaultDepositors,
     });
 
@@ -358,6 +359,9 @@ const processVaultSnapshots = async (
           r.isManager,
         ),
       ),
+      netDeposits: bnToStr(r.netDeposits),
+      cumulativeProfitShareAmount: bnToStr(r.cumulativeProfitShareAmount),
+      profitShareFeePaid: bnToStr(r.profitShareFeePaid),
     }));
 
     let vaultUserPositions: BorrowLendAggregateSnapshot | null = null;
@@ -382,6 +386,12 @@ const processVaultSnapshots = async (
       totalShares: bnToStr(v.totalShares),
       userShares: bnToStr(v.userShares),
       spotMarketIndex: v.spotMarketIndex,
+      managementFee: bnToStr(v.managementFee),
+      profitShare: v.profitShare,
+      hurdleRate: v.hurdleRate,
+      lastFeeUpdateTs: v.lastFeeUpdateTs,
+      sharesBase: v.sharesBase,
+      managerNetDeposits: bnToStr(v.managerNetDeposits),
       shareRows: shareRowsSnap,
       vaultUserPositions,
     });

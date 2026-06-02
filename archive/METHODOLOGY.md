@@ -144,8 +144,27 @@ intra-slot tx-index order.
 ## What is *not* in scope
 
 - **Oracle reprice**: the backtracked snapshot is price-independent. USD valuations come from `revalue.ts` against any oracle CSV the user chooses for T0.
-- **Vault depositor share math**: untouched — vaults are evaluated by the existing snapshot pipeline against the rewound vault drift subaccount.
+- **Vault depositor share math**: vaults are evaluated by the snapshot pipeline against the rewound vault drift subaccount. `revalue.ts` then crystallizes outstanding management fee and profit share at the snapshot moment before allocating equity to depositors and the manager — see "Vault fee crystallization" below.
 - **Attacker wallets**: present in the audit trail (so flows are traceable) but filtered out at `revalue.ts` via `BLACKLISTED_AUTHORITIES`.
+
+## Vault fee crystallization
+
+Vault equity is allocated to authorities by `revalue.ts` via `lib/vault-fees.ts::crystallizeVaultFees`, which mirrors the on-chain effect of running `apply_management_fee` then `apply_profit_share` per depositor:
+
+1. **Management fee.** Linear accrual since `lastFeeUpdateTs`: `fee = equity × managementFee / 1e6 × dt / SECONDS_PER_YEAR`, where `dt = snapshotTs − lastFeeUpdateTs`. The fee is added to the manager and removed from depositors via dilution (each depositor's pro-rata share is computed against `equity − fee`, then the full fee is credited to the manager — net effect per depositor is `-shareFraction × fee`).
+2. **Profit share.** Per depositor, using the on-chain high-water-mark via `cumulativeProfitShareAmount`:
+   `profit = depositorPostMgmtEquity − netDepositsQuote − cumulativeProfitShareAmountQuote`
+   If positive, `feeQuote = profit × profitShare / 1e6` shifts from the depositor to the manager. Token-denominated cost basis fields are converted to USD using the deposit market's spot oracle price. The manager pays no profit share on their own derived row.
+3. **Hurdle rate.** Intentionally ignored — most vaults configure `hurdleRate=0` and an audit (`estimate-vault-fees.ts`, since removed) found the impact non-material.
+
+The same fee state lives in both the T1 snapshot and the T0 backtrack (`backtrack-snapshot-perps.ts` only mutates Drift positions, not the `vaults[]` section). When `revalue.ts` crystallizes fees on both sides, the redistribution applies identically and cancels in `T0 − T1`; the only refund-affecting residue is the difference in mgmt-fee `dt` between the two snapshots, which is ≤ a few hours and bounded by ~$50 system-wide given current vault parameters.
+
+Required snapshot fields (set by the current `snapshot.ts`):
+
+- Per vault: `managementFee`, `profitShare`, `hurdleRate`, `lastFeeUpdateTs`, `sharesBase`, `managerNetDeposits`.
+- Per share row: `netDeposits`, `cumulativeProfitShareAmount`, `profitShareFeePaid`.
+
+Older snapshots that predate these fields will be rejected by `revalue.ts` with a regeneration prompt.
 
 ## How to re-run from scratch
 

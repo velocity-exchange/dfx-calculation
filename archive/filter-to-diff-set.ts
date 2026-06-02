@@ -25,11 +25,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "csv-parse/sync";
 
-import { stableJsonStringify, type Snapshot } from "./lib/snapshot-types.ts";
+import { stableJsonStringify, type Snapshot } from "../lib/snapshot-types.ts";
 import {
   sortAccountsRecord,
   type UserAccountsPayload,
-} from "./lib/pipeline-json.ts";
+} from "../lib/pipeline-json.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

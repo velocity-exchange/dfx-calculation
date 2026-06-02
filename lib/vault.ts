@@ -14,6 +14,10 @@ export type VaultDepositorLite = {
   authority: string;
   pubkey: string;
   vaultShares: BN;
+  // Cost basis fields used by fee crystallization downstream.
+  netDeposits: BN; // i64, deposit-token raw units (can be negative)
+  cumulativeProfitShareAmount: BN; // i64, deposit-token raw units
+  profitShareFeePaid: BN; // u64, deposit-token raw units
 };
 
 export type ShareRow = {
@@ -23,6 +27,9 @@ export type ShareRow = {
   shareSource: ShareSource;
   sharesRaw: BN;
   totalSharesRaw: BN;
+  netDeposits: BN;
+  cumulativeProfitShareAmount: BN;
+  profitShareFeePaid: BN;
 };
 
 export type DiscoveredVault = {
@@ -34,6 +41,13 @@ export type DiscoveredVault = {
   userShares: BN;
   spotMarketIndex: number;
   permissioned: boolean;
+  // Fee params + accrual state. Persisted via VaultSnapshot for revalue.ts.
+  managementFee: BN; // i64 scaled by PERCENTAGE_PRECISION
+  profitShare: number; // u32 scaled by PERCENTAGE_PRECISION
+  hurdleRate: number; // u32 scaled by PERCENTAGE_PRECISION
+  lastFeeUpdateTs: number; // unix seconds
+  sharesBase: number;
+  managerNetDeposits: BN; // i64, deposit-token raw units
 };
 
 function toBN(v: unknown): BN {
@@ -108,6 +122,12 @@ export async function discoverVaults(
       userShares: toBN(decoded.userShares),
       spotMarketIndex: Number(decoded.spotMarketIndex),
       permissioned: Boolean(decoded.permissioned),
+      managementFee: toBN(decoded.managementFee),
+      profitShare: Number(decoded.profitShare),
+      hurdleRate: Number(decoded.hurdleRate),
+      lastFeeUpdateTs: Number(toBN(decoded.lastFeeUpdateTs).toString()),
+      sharesBase: Number(decoded.sharesBase),
+      managerNetDeposits: toBN(decoded.managerNetDeposits),
     });
   }
 
@@ -152,6 +172,9 @@ export async function listDepositors(
       pubkey: pubkey.toBase58(),
       authority: decoded.authority.toBase58(),
       vaultShares: toBN(decoded.vaultShares),
+      netDeposits: toBN(decoded.netDeposits),
+      cumulativeProfitShareAmount: toBN(decoded.cumulativeProfitShareAmount),
+      profitShareFeePaid: toBN(decoded.profitShareFeePaid),
     });
   }
 
@@ -162,12 +185,14 @@ export function computeShareRows(params: {
   vaultTotalShares: BN;
   vaultUserShares: BN;
   vaultManagerAuthority: string;
+  vaultManagerNetDeposits: BN;
   vaultDepositors: VaultDepositorLite[];
 }): ShareRow[] {
   const {
     vaultTotalShares,
     vaultUserShares,
     vaultManagerAuthority,
+    vaultManagerNetDeposits,
     vaultDepositors,
   } = params;
 
@@ -184,6 +209,9 @@ export function computeShareRows(params: {
         shareSource: "vault_depositor",
         sharesRaw: vd.vaultShares,
         totalSharesRaw: vaultTotalShares,
+        netDeposits: vd.netDeposits,
+        cumulativeProfitShareAmount: vd.cumulativeProfitShareAmount,
+        profitShareFeePaid: vd.profitShareFeePaid,
       }),
     ),
     {
@@ -193,6 +221,9 @@ export function computeShareRows(params: {
       shareSource: "vault_manager_derived",
       sharesRaw: managerShares,
       totalSharesRaw: vaultTotalShares,
+      netDeposits: vaultManagerNetDeposits,
+      cumulativeProfitShareAmount: new BN(0),
+      profitShareFeePaid: new BN(0),
     },
   ];
 }

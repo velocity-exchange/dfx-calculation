@@ -31,15 +31,15 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import {
   aggregateUserPositions,
   mergeAggregate,
-} from "./lib/aggregate-borrow-lend.ts";
+} from "../lib/aggregate-borrow-lend.ts";
 import {
   sortAccountsRecord,
   type UserAccountsPayload,
-} from "./lib/pipeline-json.ts";
+} from "../lib/pipeline-json.ts";
 import {
   stableJsonStringify,
   type Snapshot,
-} from "./lib/snapshot-types.ts";
+} from "../lib/snapshot-types.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -153,7 +153,7 @@ const infos = await connection.getMultipleAccountsInfo(pubkeys, {
 });
 
 // --- aggregate per authority
-import type { BorrowLendAggregateSnapshot } from "./lib/snapshot-types.ts";
+import type { BorrowLendAggregateSnapshot } from "../lib/snapshot-types.ts";
 
 const newByAuthority = new Map<string, BorrowLendAggregateSnapshot>();
 const decodeFailures: string[] = [];

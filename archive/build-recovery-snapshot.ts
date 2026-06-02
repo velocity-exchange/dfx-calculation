@@ -39,18 +39,18 @@ import { fileURLToPath } from "node:url";
 import { Decimal } from "decimal.js";
 import { BN } from "@drift-labs/sdk";
 
-import { loadOracleCloseByMarket } from "./lib/oracle-csv.ts";
+import { loadOracleCloseByMarket } from "../lib/oracle-csv.ts";
 import {
   strToBn,
   type BorrowLendAggregateSnapshot,
   type PerpPositionSnapshot,
   type Snapshot,
-} from "./lib/snapshot-types.ts";
+} from "../lib/snapshot-types.ts";
 import {
   sumBorrowLendQuote,
   valueBorrowLendAggregate,
   type ValueOptions,
-} from "./lib/value-from-snapshot.ts";
+} from "../lib/value-from-snapshot.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BN0 = new BN(0);

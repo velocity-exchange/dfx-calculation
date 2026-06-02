@@ -50,28 +50,28 @@ import {
 import {
   aggregateUserPositions,
   mergeAggregate,
-} from "./lib/aggregate-borrow-lend.ts";
+} from "../lib/aggregate-borrow-lend.ts";
 import { AuditLog } from "./lib/audit-log.ts";
-import { loadOracleCloseByMarket } from "./lib/oracle-csv.ts";
-import { extractPerpMarket } from "./lib/perp-snapshot.ts";
+import { loadOracleCloseByMarket } from "../lib/oracle-csv.ts";
+import { extractPerpMarket } from "../lib/perp-snapshot.ts";
 import { adaptDriftEvents, type AnchorEvent } from "./lib/parse-drift-logs.ts";
 import {
   limitConcurrency,
   RateLimiter,
   retryStats,
   withRetry,
-} from "./lib/rate-limit.ts";
+} from "../lib/rate-limit.ts";
 import {
   bnToStr,
   strToBn,
   type BorrowLendAggregateSnapshot,
   type PerpMarketSnapshot,
   type SpotMarketSnapshot,
-} from "./lib/snapshot-types.ts";
+} from "../lib/snapshot-types.ts";
 import {
   sumBorrowLendQuote,
   valueBorrowLendAggregate,
-} from "./lib/value-from-snapshot.ts";
+} from "../lib/value-from-snapshot.ts";
 
 import {
   Anomalies,

@@ -11,7 +11,9 @@
 # Prereq: aws sso login --profile <profile>  (see README → "Pulling the Athena event data")
 
 set -euo pipefail
-cd "$(dirname "$0")"
+# This script lives in archive/; run from the repo root so ./out/athena
+# (where the recovery pipeline expects the event CSVs) resolves.
+cd "$(dirname "$0")/.."
 
 PROFILE="${1:-${AWS_PROFILE:-}}"
 if [ -z "$PROFILE" ]; then

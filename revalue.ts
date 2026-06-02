@@ -32,10 +32,10 @@ import {
   valueBorrowLendAggregate,
   type ValueOptions,
 } from "./lib/value-from-snapshot.ts";
+import { crystallizeVaultFees } from "./lib/vault-fees.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BN0 = new BN(0);
-const SCALE_1E18 = new BN("1000000000000000000");
 
 const CSV_COLUMNS = [
   "authority",
@@ -173,6 +173,7 @@ const priceBorrowLendByAuthority = (
 const allocateVaultsByAuthority = (
   vaultSnapshots: VaultSnapshot[],
   valueOpts: Omit<ValueOptions, "contextLabel">,
+  snapshotTsSec: number,
 ): Map<string, Map<string, BN>> => {
   const vaultsByAuthority = new Map<string, Map<string, BN>>();
   for (const v of vaultSnapshots) {
@@ -185,22 +186,35 @@ const allocateVaultsByAuthority = (
     const vaultEquityValueTotal = sumBorrowLendQuote(priced);
     if (vaultEquityValueTotal.eq(BN0)) continue;
 
-    for (const r of v.shareRows) {
-      const totalSharesRaw = strToBn(r.totalSharesRaw);
-      // Defensive override: older snapshots wrote shareFractionScaled=0 for
-      // the manager row when totalShares==0, dropping any residual vault
-      // value (e.g. last depositor withdrew, lending interest accrued
-      // afterward or perp positions accrued positive PnL). Force the manager
-      // row to 100% in that case so the residual flows to them.
-      const shareFractionScaled =
-        totalSharesRaw.isZero() && r.isManager
-          ? SCALE_1E18
-          : strToBn(r.shareFractionScaled);
-      const depositorEquityValue = shareFractionScaled
-        .mul(vaultEquityValueTotal)
-        .div(SCALE_1E18);
+    // Defensive override: when totalShares==0 (e.g. last depositor withdrew,
+    // residual interest/PnL accrued), the snapshot writes
+    // shareFractionScaled=0 for the derived manager row. Detect that case
+    // and route the residual to the manager directly.
+    const totalSharesRaw = strToBn(v.totalShares);
+    if (totalSharesRaw.isZero()) {
+      const managerAuth = v.manager;
+      let byVault = vaultsByAuthority.get(managerAuth);
+      if (!byVault) {
+        byVault = new Map();
+        vaultsByAuthority.set(managerAuth, byVault);
+      }
+      byVault.set(
+        v.vault_pubkey,
+        (byVault.get(v.vault_pubkey) ?? BN0).add(vaultEquityValueTotal),
+      );
+      continue;
+    }
 
-      const auth = r.depositorAuthority;
+    const valueByAuth = crystallizeVaultFees({
+      equityQuote: vaultEquityValueTotal,
+      vaultSnap: v,
+      snapshotTsSec,
+      spotPriceByMarket: valueOpts.spotPricesByMarket,
+      spotMarkets: valueOpts.spotMarkets,
+      contextLabel: `vault=${v.vault_pubkey}`,
+    });
+
+    for (const [auth, value] of valueByAuth) {
       let byVault = vaultsByAuthority.get(auth);
       if (!byVault) {
         byVault = new Map();
@@ -208,7 +222,7 @@ const allocateVaultsByAuthority = (
       }
       byVault.set(
         v.vault_pubkey,
-        (byVault.get(v.vault_pubkey) ?? BN0).add(depositorEquityValue),
+        (byVault.get(v.vault_pubkey) ?? BN0).add(value),
       );
     }
   }
@@ -296,9 +310,26 @@ async function main(): Promise<void> {
     valueOpts,
   );
 
+  const snapshotTsSec = Math.floor(
+    new Date(snapshot.snapshotTimestampUtc).getTime() / 1000,
+  );
+  // Sanity: snapshot must carry fee fields used by crystallizeVaultFees.
+  const sample = snapshot.vaults[0];
+  if (
+    sample &&
+    (sample.managementFee === undefined ||
+      sample.lastFeeUpdateTs === undefined ||
+      sample.profitShare === undefined)
+  ) {
+    throw new Error(
+      `Snapshot is missing vault fee fields (managementFee, profitShare, lastFeeUpdateTs).\n` +
+        `  Regenerate with the current snapshot.ts — older snapshots predate fee crystallization support.`,
+    );
+  }
   const vaultsByAuthority = allocateVaultsByAuthority(
     snapshot.vaults,
     valueOpts,
+    snapshotTsSec,
   );
 
   writeAuthorityNotionalCsv(
