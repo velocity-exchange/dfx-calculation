@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "snapshot": "bun ./snapshot.ts",
-    "revalue": "bun ./revalue.ts",
+    "snapshot": "bun ./dfx/snapshot.ts",
+    "revalue": "bun ./dfx/revalue.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

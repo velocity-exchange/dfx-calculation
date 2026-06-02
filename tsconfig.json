@@ -10,5 +10,5 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["*.ts", "lib/**/*.ts", "insurance-fund/**/*.ts"]
+  "include": ["*.ts", "lib/**/*.ts", "dfx/**/*.ts", "insurance-fund/**/*.ts"]
 }

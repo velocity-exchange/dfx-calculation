@@ -15,13 +15,13 @@
 # (see README → "Pulling the Athena event data").
 
 set -euo pipefail
-# This script lives in archive/; run from the repo root so ./out,
-# ./oracle-prices and the kept snapshot.ts/revalue.ts all resolve. The
-# recovery-only scripts live alongside this one under archive/.
+# This script lives in archive/; run from the repo root so ./out and the
+# dFx entry scripts under ./dfx (snapshot.ts/revalue.ts, oracle-prices/) all
+# resolve. The recovery-only scripts live alongside this one under archive/.
 cd "$(dirname "$0")/.."
 
 RPC="${1:-}"
-T0_ORACLE="./oracle-prices/pyth_oracle_prices-160600.csv"
+T0_ORACLE="./dfx/oracle-prices/pyth_oracle_prices-160600.csv"
 
 # Preflight: required Athena inputs
 for f in trades.csv funding.csv liq.csv settle_pnl.csv swap.csv funding_rate.csv; do
@@ -37,7 +37,7 @@ n=1
 
 if [ -n "$RPC" ]; then
   echo "==[$n/$STEPS] snapshot.ts — fetch T1 from chain"; n=$((n+1))
-  bun ./snapshot.ts --rpc-url "$RPC" --output ./out/base_snapshot.json
+  bun ./dfx/snapshot.ts --rpc-url "$RPC" --output ./out/base_snapshot.json
   # If backtrack surfaces unknown sub-accounts in out/backtrack_anomalies.log,
   # run archive/resolve-missing-subaccounts.ts + archive/augment-snapshot.ts then re-run this script.
 fi
@@ -56,7 +56,7 @@ bun ./archive/build-recovery-snapshot.ts \
   --output ./out/recovery_snapshot.csv
 
 echo "==[$n/$STEPS] revalue.ts — price T0 snapshot @ T0 oracle"; n=$((n+1))
-bun ./revalue.ts \
+bun ./dfx/revalue.ts \
   --snapshot ./out/base_snapshot_backtracked.json \
   --spot-oracle-csv "$T0_ORACLE" \
   --perp-oracle-csv "$T0_ORACLE" \
@@ -64,7 +64,7 @@ bun ./revalue.ts \
 
 echo "==[$n/$STEPS] revalue.ts — price T1 snapshot @ T0 oracle"; n=$((n+1))
 # Same oracle on both sides: refund = balance change only, not mark-to-market.
-bun ./revalue.ts \
+bun ./dfx/revalue.ts \
   --snapshot ./out/base_snapshot.json \
   --spot-oracle-csv "$T0_ORACLE" \
   --perp-oracle-csv "$T0_ORACLE" \

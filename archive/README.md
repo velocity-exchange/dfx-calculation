@@ -59,13 +59,13 @@ Positive `refund_usd` ⇒ user lost value during the window (owed). Negative
 ### Re-pricing T0 against a different oracle
 
 `out/base_snapshot_backtracked.json` is itself a fully-formed
-`base_snapshot.json` — drop it into `revalue.ts` against any oracle CSV:
+`base_snapshot.json` — drop it into `dfx/revalue.ts` against any oracle CSV:
 
 ```sh
-bun ./revalue.ts \
+bun ./dfx/revalue.ts \
   --snapshot ./out/base_snapshot_backtracked.json \
-  --spot-oracle-csv ./oracle-prices/pyth_oracle_prices-183100.csv \
-  --perp-oracle-csv ./oracle-prices/pyth_oracle_prices-183100.csv \
+  --spot-oracle-csv ./dfx/oracle-prices/pyth_oracle_prices-183100.csv \
+  --perp-oracle-csv ./dfx/oracle-prices/pyth_oracle_prices-183100.csv \
   --output ./out/authority_notional_t0_alt.csv
 ```
 

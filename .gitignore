@@ -9,3 +9,6 @@ users.json.bak
 users.changed.json
 
 insurance-fund/out/*
+
+dfx/out/*
+!dfx/out/.gitkeep
