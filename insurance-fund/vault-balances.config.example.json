@@ -1,0 +1,14 @@
+{
+  "marketOverrides": {
+    "0": {
+      "vaultBalance": "15595120840000",
+      "decimals": 6,
+      "reason": "USDC (market 0) IF vault drained administratively on YYYY-MM-DD; raw base units (6 decimals). 15595120840000 = 15,595,120.84 USDC."
+    },
+    "1": {
+      "vaultBalance": "14352791091478",
+      "decimals": 9,
+      "reason": "SOL (market 1) IF vault drained administratively; raw base units (9 decimals). 14352791091478 = 14,352.791091478 SOL."
+    }
+  }
+}

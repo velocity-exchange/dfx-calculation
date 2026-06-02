@@ -52,7 +52,7 @@ export function crystallizeVaultFees(args: {
   // mgmtFeeQuote = equityQuote * mgmtFeeRaw * dt / (PERCENTAGE_PRECISION * SECONDS_PER_YEAR)
   let mgmtFeeQuote = equityQuote
     .mul(mgmtFeeRaw)
-    .muln(dt)
+    .mul(new BN(dt))
     .div(PERCENTAGE_PRECISION)
     .div(SECONDS_PER_YEAR);
   // Sanity clamp: |mgmtFee| <= equity (avoids pathological values from misconfigured fees)
@@ -83,9 +83,7 @@ export function crystallizeVaultFees(args: {
         ` — profit share will not be applied to vault ${vaultSnap.vault_pubkey}`,
     );
   }
-  const tenPowDec = canPriceTokens
-    ? new BN(10).pow(new BN(spotDec))
-    : BN0;
+  const tenPowDec = canPriceTokens ? new BN(10).pow(new BN(spotDec)) : BN0;
   const tokenRawToQuote = (raw: BN): BN => {
     if (!canPriceTokens) return BN0;
     return raw.mul(spotPrice!).div(tenPowDec);
