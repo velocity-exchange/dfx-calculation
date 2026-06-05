@@ -1,0 +1,282 @@
+{
+  "attackerAuthorities": [
+    "9sG4XYicGtMKe7nSFEkRuAMKJMVb3QPSqKvxBGpb1Rbn",
+    "3apA2d235ZZpzNuwBbDh1tbmSmDDmKesRchzmXuvdera",
+    "Gew3grkVGP5k2gJpyeEukbXkYHN9RwNyKohFA4XCHMmN",
+    "55udxhScWQxM7cC9d1NPBQoEDC7B38w81EWKPZsM7ZCW",
+    "EEaX5aVopMn2nnb4dgbmXi3RJH9URLLkpfKMyiWpbinb"
+  ],
+  "breakdown": [
+    {
+      "authority": "9sG4XYicGtMKe7nSFEkRuAMKJMVb3QPSqKvxBGpb1Rbn",
+      "notionalWithdrawn": "19584165.734653",
+      "userAccounts": [
+        {
+          "notionalWithdrawn": "19584165.734653",
+          "scamWithdrawals": [],
+          "subAccountId": 0,
+          "tokens": [
+            {
+              "amountWithdrawn": "17418.923482745",
+              "marketIndex": 2,
+              "notionalWithdrawn": "1981149.710488",
+              "symbol": "mSOL",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "63.46706518",
+              "marketIndex": 3,
+              "notionalWithdrawn": "4361425.983276",
+              "symbol": "wBTC",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "2198801.469182",
+              "marketIndex": 5,
+              "notionalWithdrawn": "2198031.888668",
+              "symbol": "USDT",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "33976.508765811",
+              "marketIndex": 6,
+              "notionalWithdrawn": "3591149.200546",
+              "symbol": "jitoSOL",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "23365802.896245",
+              "marketIndex": 39,
+              "notionalWithdrawn": "4134275.067053",
+              "symbol": "FARTCOIN",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "2865380.795834",
+              "marketIndex": 57,
+              "notionalWithdrawn": "3318133.884622",
+              "symbol": "syrupUSDC",
+              "withdrawCount": 1
+            }
+          ],
+          "userAccount": "3tcLFmUJtuTBdz12NiDzpYkVgx3FeM2H9qR4hipiCmxB",
+          "withdrawCount": 6
+        }
+      ]
+    },
+    {
+      "authority": "3apA2d235ZZpzNuwBbDh1tbmSmDDmKesRchzmXuvdera",
+      "notionalWithdrawn": "5745524.698645",
+      "userAccounts": [
+        {
+          "notionalWithdrawn": "5745524.698645",
+          "scamWithdrawals": [],
+          "subAccountId": 0,
+          "tokens": [
+            {
+              "amountWithdrawn": "9474.328100349",
+              "marketIndex": 8,
+              "notionalWithdrawn": "1014040.264148",
+              "symbol": "bSOL",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "2622068.015983",
+              "marketIndex": 11,
+              "notionalWithdrawn": "430260.384879",
+              "symbol": "JUP",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "21241.615582537",
+              "marketIndex": 16,
+              "notionalWithdrawn": "2494569.749506",
+              "symbol": "INF",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "477375.415118",
+              "marketIndex": 18,
+              "notionalWithdrawn": "537739.536360",
+              "symbol": "USDY",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "8.61109242",
+              "marketIndex": 45,
+              "notionalWithdrawn": "590996.108452",
+              "symbol": "zBTC",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "583980.689542",
+              "marketIndex": 54,
+              "notionalWithdrawn": "677918.655300",
+              "symbol": "EURC",
+              "withdrawCount": 1
+            }
+          ],
+          "userAccount": "4aNKrkZYJk2HUmo1Sj7NM8x711Xrzn2tH9L7PCk82Tii",
+          "withdrawCount": 6
+        }
+      ]
+    },
+    {
+      "authority": "Gew3grkVGP5k2gJpyeEukbXkYHN9RwNyKohFA4XCHMmN",
+      "notionalWithdrawn": "13240747.086512",
+      "userAccounts": [
+        {
+          "notionalWithdrawn": "13240747.086512",
+          "scamWithdrawals": [],
+          "subAccountId": 0,
+          "tokens": [
+            {
+              "amountWithdrawn": "8800000",
+              "marketIndex": 0,
+              "notionalWithdrawn": "8798800.000000",
+              "symbol": "USDC",
+              "withdrawCount": 3
+            },
+            {
+              "amountWithdrawn": "3449608.681738",
+              "marketIndex": 5,
+              "notionalWithdrawn": "3448478.587895",
+              "symbol": "USDT",
+              "withdrawCount": 2
+            },
+            {
+              "amountWithdrawn": "993468.498617",
+              "marketIndex": 28,
+              "notionalWithdrawn": "993468.498617",
+              "symbol": "USDS",
+              "withdrawCount": 4
+            }
+          ],
+          "userAccount": "9HNm4aMFxVCGgSmYt4ERdG6FQR3A9fcTXTVzU87jh7NJ",
+          "withdrawCount": 9
+        }
+      ]
+    },
+    {
+      "authority": "55udxhScWQxM7cC9d1NPBQoEDC7B38w81EWKPZsM7ZCW",
+      "notionalWithdrawn": "242109303.130971",
+      "userAccounts": [
+        {
+          "notionalWithdrawn": "242109303.130971",
+          "scamWithdrawals": [
+            {
+              "amountWithdrawn": "200000000000",
+              "label": "scam token",
+              "marketIndex": 63,
+              "symbol": "NA",
+              "withdrawCount": 2
+            }
+          ],
+          "subAccountId": 0,
+          "tokens": [
+            {
+              "amountWithdrawn": "51615648.657841",
+              "marketIndex": 0,
+              "notionalWithdrawn": "51605893.300245",
+              "symbol": "USDC",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "125000",
+              "marketIndex": 1,
+              "notionalWithdrawn": "10413228.875000",
+              "symbol": "SOL",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "2200.59374512",
+              "marketIndex": 4,
+              "notionalWithdrawn": "4687972.192201",
+              "symbol": "wETH",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "45292.208963921",
+              "marketIndex": 17,
+              "notionalWithdrawn": "4467797.097238",
+              "symbol": "dSOL",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "41721062.002941",
+              "marketIndex": 19,
+              "notionalWithdrawn": "155369652.109572",
+              "symbol": "JLP",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "164.34902943",
+              "marketIndex": 27,
+              "notionalWithdrawn": "11304211.075690",
+              "symbol": "cbBTC",
+              "withdrawCount": 1
+            },
+            {
+              "amountWithdrawn": "4260548.481025",
+              "marketIndex": 28,
+              "notionalWithdrawn": "4260548.481025",
+              "symbol": "USDS",
+              "withdrawCount": 1
+            }
+          ],
+          "userAccount": "FKUrwi48UyT7TveZyneEYfgr7T6EukujkRdyhX8pjWkH",
+          "withdrawCount": 7
+        },
+        {
+          "notionalWithdrawn": "0.000000",
+          "scamWithdrawals": [],
+          "subAccountId": 1,
+          "tokens": [],
+          "userAccount": "Dc68Swtnw57CegJgSiKKyd8kASYVnJiXXjL7bKT61G7s",
+          "withdrawCount": 0
+        }
+      ]
+    },
+    {
+      "authority": "EEaX5aVopMn2nnb4dgbmXi3RJH9URLLkpfKMyiWpbinb",
+      "notionalWithdrawn": "14735913.500000",
+      "userAccounts": [
+        {
+          "notionalWithdrawn": "14735913.500000",
+          "scamWithdrawals": [],
+          "subAccountId": 0,
+          "tokens": [
+            {
+              "amountWithdrawn": "1000000",
+              "marketIndex": 33,
+              "notionalWithdrawn": "3737190.500000",
+              "symbol": "JLP-1",
+              "withdrawCount": 2
+            },
+            {
+              "amountWithdrawn": "11000000",
+              "marketIndex": 34,
+              "notionalWithdrawn": "10998723.000000",
+              "symbol": "USDC-1",
+              "withdrawCount": 4
+            }
+          ],
+          "userAccount": "ET7AQfwZmvgFhci1VVSMJeTibRxj9R7h1kTP6Wx1A6dQ",
+          "withdrawCount": 6
+        }
+      ]
+    }
+  ],
+  "dataApiBase": "https://data.api.drift.trade",
+  "driftProgramId": "dRiftyHA39MWEi3m9aunc5MzRF1JYuBsbn6VPcn33UH",
+  "generatedAt": "2026-06-05T06:32:46.008Z",
+  "note": "notionalWithdrawn = sum over withdraw records of amount * oraclePrice (both human-readable from the data API). Spot markets 62/63/64/65 are scam tokens, excluded from totals and listed under scamWithdrawals.",
+  "period": "2026/4",
+  "scamMarketIndexes": [
+    62,
+    63,
+    64,
+    65
+  ],
+  "sumNotionalWithdrawn": "295415654.150781"
+}
