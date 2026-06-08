@@ -40,8 +40,10 @@ import {
   fetchAllIfStakes,
   readIfMarketStates,
   toUi,
+  valueProtocolStake,
   valueStake,
 } from "./lib/insurance-fund.ts";
+import { PROTOCOL_AUTHORITY } from "../lib/protocol-authority.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -404,6 +406,25 @@ async function main(): Promise<void> {
       stake.marketIndex,
       (depositorCountByMarket.get(stake.marketIndex) ?? 0) + 1,
     );
+  }
+
+  // Attribute each market's protocol-owned IF slice (totalShares − userShares)
+  // to PROTOCOL_AUTHORITY as a synthetic deposit, mirroring dfx/revalue.ts.
+  // Not counted in depositorCount (not a real staker).
+  for (const state of marketStates.values()) {
+    const protocolDeposit = valueProtocolStake(state);
+    if (!protocolDeposit) continue;
+
+    const depositSnap = depositToSnapshot(protocolDeposit, state.decimals);
+
+    const list =
+      byAuthority[PROTOCOL_AUTHORITY] ?? (byAuthority[PROTOCOL_AUTHORITY] = []);
+    list.push(depositSnap);
+
+    const marketRows =
+      rowsByMarket.get(state.marketIndex) ??
+      rowsByMarket.set(state.marketIndex, []).get(state.marketIndex)!;
+    marketRows.push({ authority: PROTOCOL_AUTHORITY, deposit: depositSnap });
   }
 
   // Stable ordering: sort each authority's deposits by market index.
