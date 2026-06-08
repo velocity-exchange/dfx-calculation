@@ -40,16 +40,10 @@ import {
   valueRemainingSpot,
   type RemainingSpotValue,
 } from "../lib/dfx-supply.ts";
+import { PROTOCOL_AUTHORITY } from "../lib/protocol-authority.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const BN0 = new BN(0);
-
-/**
- * Protocol treasury wallet. The DFX supply that isn't attributable to any user
- * (total supply − users-owned shares) is attributed here as a borrow-lend
- * number — these are the "protocol-owned shares". See dfx/README.md.
- */
-const PROTOCOL_AUTHORITY = "HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF";
 
 /**
  * Fixed borrow-lend overrides for authorities whose value can't be derived from

@@ -152,12 +152,22 @@ Notes:
   `fetchInsuranceFundData` does; otherwise all shares are valued at the live
   share price. The raw `lastWithdrawRequest*` fields are still included for audit.
 - Stakes with zero effective shares (empty/closed positions) are skipped.
+- The protocol-owned slice of each market's Insurance Fund (`totalShares −
+  userShares`, tracked on the market with no `InsuranceFundStake` account) is
+  attributed to the protocol authority
+  `HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF` as a synthetic deposit, mirroring
+  the DFX pipeline (`dfx/revalue.ts`). It appears under that authority in
+  `byAuthority` and as a per-market CSV row, identified by `stakePubkey =
+  "protocol_owned"` (it is not a real stake account). Markets with no protocol
+  slice (`totalShares == userShares`) produce no such row. The synthetic row is
+  **not** included in a market's `depositorCount`.
 
 ## Per-market CSVs
 
 Alongside the JSON, the script writes one CSV per spot market named
-`{marketIndex}_{symbol}.csv` (e.g. `0_USDC.csv`, `1_SOL.csv`) into a `csv/`
-subdirectory next to the JSON output (override with `--csv-dir <path>`).
+`{marketIndex}_{symbol}.csv` (e.g. `0_USDC.csv`, `1_SOL.csv`) into the committed
+`insurance-fund/snapshots/` directory by default (override with `--csv-dir
+<path>`). The JSON output itself stays under the gitignored `out/`.
 
 Each row is one staker deposit, with `authority` first followed by the same
 attributes as the JSON deposits:

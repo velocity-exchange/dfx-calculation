@@ -20,8 +20,8 @@
  *                        ./insurance-fund/vault-balances.config.json if present.
  *                        Use this for vaults whose tokens were moved off-chain
  *                        (on-chain balance reads 0) so stakes can still be valued.
- *   --csv-dir <path>     Where per-market CSVs are written. Defaults to a `csv/`
- *                        subdirectory next to the JSON output.
+ *   --csv-dir <path>     Where per-market CSVs are written. Defaults to the
+ *                        committed `insurance-fund/snapshots/` directory.
  */
 
 import fs from "node:fs";
@@ -40,8 +40,10 @@ import {
   fetchAllIfStakes,
   readIfMarketStates,
   toUi,
+  valueProtocolStake,
   valueStake,
 } from "./lib/insurance-fund.ts";
+import { PROTOCOL_AUTHORITY } from "../lib/protocol-authority.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -86,8 +88,9 @@ function parseFlags(): CliFlags {
     output,
     marketIndex: miFlag !== undefined ? Number(miFlag) : null,
     configPath,
-    // Per-market CSVs land beside the JSON in a `csv/` subdir by default.
-    csvDir: getFlag("--csv-dir") ?? path.resolve(path.dirname(output), "csv"),
+    // Per-market CSVs default to the committed `snapshots/` dir (override with
+    // --csv-dir); the JSON output stays under the gitignored `out/`.
+    csvDir: getFlag("--csv-dir") ?? path.resolve(__dirname, "snapshots"),
   };
 }
 
@@ -404,6 +407,25 @@ async function main(): Promise<void> {
       stake.marketIndex,
       (depositorCountByMarket.get(stake.marketIndex) ?? 0) + 1,
     );
+  }
+
+  // 3b. Attribute each market's protocol-owned IF slice (totalShares − userShares)
+  // to PROTOCOL_AUTHORITY as a synthetic deposit, mirroring the protocol-residual
+  // pattern in dfx/revalue.ts. Not counted in depositorCount (not a real staker).
+  for (const state of marketStates.values()) {
+    const protocolDeposit = valueProtocolStake(state);
+    if (!protocolDeposit) continue;
+
+    const depositSnap = depositToSnapshot(protocolDeposit, state.decimals);
+
+    const list =
+      byAuthority[PROTOCOL_AUTHORITY] ?? (byAuthority[PROTOCOL_AUTHORITY] = []);
+    list.push(depositSnap);
+
+    const marketRows =
+      rowsByMarket.get(state.marketIndex) ??
+      rowsByMarket.set(state.marketIndex, []).get(state.marketIndex)!;
+    marketRows.push({ authority: PROTOCOL_AUTHORITY, deposit: depositSnap });
   }
 
   // Stable ordering: sort each authority's deposits by market index.
