@@ -325,6 +325,60 @@ export function valueStake(
 }
 
 /**
+ * Value the protocol-owned slice of a market's Insurance Fund as a synthetic
+ * deposit attributed to `protocolAuthority`. The protocol slice is
+ * `totalIfShares − userIfShares` — shares tracked directly on the market with no
+ * `InsuranceFundStake` account. Mirrors dfx/revalue.ts attributing the DFX
+ * protocol residual to the same wallet.
+ *
+ * Returns null when the slice is <= 0 (no protocol-owned shares). A strictly
+ * negative slice cannot occur on-chain (user shares never exceed total); if it
+ * does, warn and skip rather than emit a negative claim.
+ *
+ * `protocolAuthority` is accepted for symmetry with the user-stake path and to
+ * make the attribution explicit at the call site; the returned deposit is keyed
+ * to the protocol via the "protocol_owned" marker rather than a stake pubkey.
+ */
+export function valueProtocolStake(
+  marketState: IfMarketState,
+  protocolAuthority: string,
+): IfDeposit | null {
+  const protocolShares = marketState.totalIfShares.sub(
+    marketState.userIfShares,
+  );
+  if (protocolShares.lte(ZERO)) {
+    if (protocolShares.isNeg()) {
+      console.warn(
+        `  ⚠ market ${marketState.marketIndex} (${marketState.symbol}): ` +
+          `userIfShares (${marketState.userIfShares.toString()}) exceed ` +
+          `totalIfShares (${marketState.totalIfShares.toString()}) — ` +
+          `skipping protocol-owned claim for ${protocolAuthority}.`,
+      );
+    }
+    return null;
+  }
+
+  const tokenAmount = unstakeSharesToAmount(
+    protocolShares,
+    marketState.totalIfShares,
+    marketState.vaultBalance,
+  );
+
+  return {
+    marketIndex: marketState.marketIndex,
+    stakePubkey: "protocol_owned",
+    ifSharesRaw: protocolShares,
+    ifBase: marketState.sharesBase,
+    effectiveShares: protocolShares,
+    tokenAmount,
+    costBasis: ZERO,
+    lastWithdrawRequestShares: ZERO,
+    lastWithdrawRequestValue: ZERO,
+    lastWithdrawRequestTs: ZERO,
+  };
+}
+
+/**
  * Fetch every `InsuranceFundStake` account on the program via a single
  * discriminator-filtered `getProgramAccounts` scan (anchor's `.all()`).
  */
