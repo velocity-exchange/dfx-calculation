@@ -6,7 +6,7 @@ import from.
 
 | directory                            | what it does                                                                 |
 | ------------------------------------ | ---------------------------------------------------------------------------- |
-| [`dfx/`](dfx/README.md)              | Per-authority **notional** accounting (snapshot → revalue → CSV).            |
+| [`dfx/`](dfx/README.md)              | **DFX recovery accounting** — total DFX supply + per-user DFX entitlement.   |
 | [`insurance-fund/`](insurance-fund/README.md) | Per-staker **insurance-fund** valuation (shares → token amount, per market). |
 | [`archive/`](archive/README.md)      | Archived post-incident **recovery / backtracking** pipeline (refunds).       |
 | `lib/`                               | Shared helpers imported by all three (see below).                            |
@@ -18,7 +18,7 @@ Requires [Bun](https://bun.sh). Run all commands from the repo root.
 ```sh
 bun install
 
-# dFx notional pipeline (see dfx/README.md)
+# DFX recovery accounting (see dfx/README.md)
 bun run snapshot   # phase 1 — fetch on-chain state → dfx/out/base_snapshot.json
 bun run revalue    # phase 2 — price snapshot       → dfx/out/authority_notional.csv
 
@@ -31,7 +31,7 @@ bun run typecheck
 
 Each pipeline's flags, inputs, and outputs are documented in its own README:
 
-- **dFx notional** → [`dfx/README.md`](dfx/README.md)
+- **DFX recovery accounting** → [`dfx/README.md`](dfx/README.md)
 - **Insurance fund** → [`insurance-fund/README.md`](insurance-fund/README.md)
 - **Recovery (archived)** → [`archive/README.md`](archive/README.md) and
   [`archive/METHODOLOGY.md`](archive/METHODOLOGY.md)
@@ -40,7 +40,7 @@ Each pipeline's flags, inputs, and outputs are documented in its own README:
 
 ```
 authority-notional/
-├── dfx/                       # dFx notional pipeline (self-contained)
+├── dfx/                       # DFX recovery accounting (self-contained)
 ├── insurance-fund/            # insurance-fund snapshot (self-contained)
 ├── archive/                   # archived post-incident recovery pipeline
 └── lib/                       # shared library (imported by dfx/, insurance-fund/, archive/)

@@ -24,12 +24,10 @@ import {
 import { type Connection, PublicKey } from "@solana/web3.js";
 
 import { withRetry } from "../../lib/rate-limit.ts";
+import { parseTokenAccountAmount } from "../../lib/token-account.ts";
 
 const ZERO = new BN(0);
 const TEN = new BN(10);
-
-/** Offset of the `amount` (u64 LE) field in an SPL token account: mint(32) + owner(32). */
-const TOKEN_ACCOUNT_AMOUNT_OFFSET = 64;
 
 type RetryOpts = { retries: number; baseDelayMs: number; maxDelayMs: number };
 
@@ -135,23 +133,6 @@ export function rebaseShares(
   return ifSharesRaw.div(rebaseDivisor);
 }
 
-/**
- * Decode the raw token `amount` (u64, little-endian) from an SPL token account's
- * data. The IF vault is a token account; its balance lives at a fixed offset.
- */
-export function parseTokenAccountAmount(data: Uint8Array): BN {
-  const buf = Buffer.from(data);
-  if (buf.length < TOKEN_ACCOUNT_AMOUNT_OFFSET + 8) {
-    throw new Error(
-      `Token account data too short (${buf.length} bytes); not an SPL token account`,
-    );
-  }
-  return new BN(
-    buf.subarray(TOKEN_ACCOUNT_AMOUNT_OFFSET, TOKEN_ACCOUNT_AMOUNT_OFFSET + 8),
-    "le",
-  );
-}
-
 /** Build an IF market state from a decoded spot market and its vault balance. */
 function buildMarketState(
   market: SpotMarketAccount,
@@ -186,11 +167,13 @@ export async function readIfMarketState(
 /**
  * Read IF state for many spot markets, batching the IF-vault token-account
  * reads through `getMultipleAccountsInfo` (chunked) instead of one RPC call
- * per market. A missing/closed vault account is treated as a 0 balance.
+ * per market. A missing/closed vault account is treated as 0 only when the
+ * market has no outstanding shares; if totalIfShares > 0, throws so stakers
+ * are not silently valued against a zero balance.
  */
 export async function readIfMarketStates(
   connection: Connection,
-  markets: SpotMarketAccount[],
+  markets: SpotMarketAccount[], 
   opts: { retry: RetryOpts; chunkSize?: number },
 ): Promise<IfMarketState[]> {
   const chunkSize = opts.chunkSize ?? 100;
@@ -206,10 +189,27 @@ export async function readIfMarketStates(
     );
     for (let j = 0; j < chunk.length; j++) {
       const info = infos[j];
-      balanceByVault.set(
-        chunk[j].toBase58(),
-        info?.data ? parseTokenAccountAmount(info.data) : ZERO,
-      );
+      const vaultKey = chunk[j].toBase58();
+      if (!info?.data) {
+        const market = markets[i + j];
+        if (market.insuranceFund.totalShares.gt(ZERO)) {
+          const symbol = decodeName(market.name).trim();
+          throw new Error(
+            `Market ${market.marketIndex} (${symbol}): IF vault ${vaultKey} is missing or closed on-chain ` +
+              `but totalIfShares=${market.insuranceFund.totalShares.toString()} — refusing to value stakes against 0. ` +
+              `Add a vault-balance override in the config if tokens were moved off-chain.`,
+          );
+        }
+        balanceByVault.set(vaultKey, ZERO);
+      } else {
+        balanceByVault.set(
+          vaultKey,
+          parseTokenAccountAmount(info, {
+            address: chunk[j],
+            mint: markets[i + j].mint,
+          }),
+        );
+      }
     }
   }
 
@@ -291,7 +291,7 @@ export function valueStake(
   // unstake request, the requested portion is valued at the amount locked in at
   // request time (capped against current value), not at the live share price.
   // Valuing everything at the live price otherwise overstates appreciated stakes.
-  const hasOpenRequest = stake.lastWithdrawRequestValue.gt(ZERO);
+  const hasOpenRequest = stake.lastWithdrawRequestShares.gt(ZERO);
   const tokenAmount = hasOpenRequest
     ? unstakeSharesToAmountWithOpenRequest(
         effectiveShares,
