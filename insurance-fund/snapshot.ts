@@ -20,8 +20,8 @@
  *                        ./insurance-fund/vault-balances.config.json if present.
  *                        Use this for vaults whose tokens were moved off-chain
  *                        (on-chain balance reads 0) so stakes can still be valued.
- *   --csv-dir <path>     Where per-market CSVs are written. Defaults to a `csv/`
- *                        subdirectory next to the JSON output.
+ *   --csv-dir <path>     Where per-market CSVs are written. Defaults to the
+ *                        committed `insurance-fund/snapshots/` directory.
  */
 
 import fs from "node:fs";
@@ -88,8 +88,9 @@ function parseFlags(): CliFlags {
     output,
     marketIndex: miFlag !== undefined ? Number(miFlag) : null,
     configPath,
-    // Per-market CSVs land beside the JSON in a `csv/` subdir by default.
-    csvDir: getFlag("--csv-dir") ?? path.resolve(path.dirname(output), "csv"),
+    // Per-market CSVs default to the committed `snapshots/` dir (override with
+    // --csv-dir); the JSON output stays under the gitignored `out/`.
+    csvDir: getFlag("--csv-dir") ?? path.resolve(__dirname, "snapshots"),
   };
 }
 

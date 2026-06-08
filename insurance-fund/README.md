@@ -165,8 +165,9 @@ Notes:
 ## Per-market CSVs
 
 Alongside the JSON, the script writes one CSV per spot market named
-`{marketIndex}_{symbol}.csv` (e.g. `0_USDC.csv`, `1_SOL.csv`) into a `csv/`
-subdirectory next to the JSON output (override with `--csv-dir <path>`).
+`{marketIndex}_{symbol}.csv` (e.g. `0_USDC.csv`, `1_SOL.csv`) into the committed
+`insurance-fund/snapshots/` directory by default (override with `--csv-dir
+<path>`). The JSON output itself stays under the gitignored `out/`.
 
 Each row is one staker deposit, with `authority` first followed by the same
 attributes as the JSON deposits:
