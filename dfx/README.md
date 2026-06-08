@@ -44,7 +44,7 @@ The two decompositions are reconciled in `dfx/out/dfx_supply_summary.json`.
 
 1. **Attacker withdrawals** (`attacker-withdrawals.ts`) tallies, per attacker
    wallet, `Σ amount × oraclePrice` over every `withdraw` record from the Drift
-   data API. Scam-token markets 62/63/64/65 are excluded and reported
+   data API. Scam-token markets 63/64/65 are excluded and reported
    separately. The grand total is `sumNotionalWithdrawn`.
 
 2. **Remaining spot balance** (`spot-balances.ts`) captures, per spot market,
@@ -56,7 +56,7 @@ The two decompositions are reconciled in `dfx/out/dfx_supply_summary.json`.
    remaining      = net_deposits + revenue_pool
    ```
 
-   Scam markets 62/63/64/65 are excluded entirely. The raw on-chain vault
+   Scam markets 63/64/65 are excluded entirely. The raw on-chain vault
    balance and the `unaccounted` remainder (`vault − net_deposits −
 revenue_pool`) are also written to the CSV for audit, but **`unaccounted` is
    excluded from `remaining`** — those are tokens in the vault PDA that the
@@ -238,7 +238,7 @@ remaining_spot`) and by-ownership (`users_owned + protocol_owned`) must agree
 - **Pricing source of truth**: the revalue phase never reads chain oracle state
   — every USD figure (including the remaining spot balance) traces back to the
   CSV you pass in. USDC is always priced from the **spot** oracle set (~1.0).
-- **Scam markets**: 62/63/64/65 are excluded from both supply terms (attacker
+- **Scam markets**: 63/64/65 are excluded from both supply terms (attacker
   withdrawals lists them separately; spot-balances omits them entirely).
 - **Blacklisted authorities** (attacker wallets, the Faris vault and its
   depositors) are stored in the snapshot for traceability and filtered out in
@@ -249,7 +249,7 @@ remaining_spot`) and by-ownership (`users_owned + protocol_owned`) must agree
   replaces the authority's organic value and is surfaced under its own breakdown
   key. Currently:
   - `amdLor8dLQD2sTbedx8SgbKYbxWpCEtAW9iiZoz4kZX` — a liquidator who liquidated
-    the scam-token markets (62/63/64/65). Those markets are excluded everywhere
+    the scam-token markets (63/64/65). Those markets are excluded everywhere
     else, so his position can't be priced from the snapshot; his backtracked
     amount is **$646.69**, assigned directly (breakdown key
     `liquidator_scam_token_backtrack`).

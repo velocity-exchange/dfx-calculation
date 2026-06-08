@@ -12,7 +12,7 @@
  *   3. keep only `withdraw` records, aggregate token amount per spot market and
  *      compute notional = amount * oraclePrice (both already human-readable).
  *
- * Spot markets 62/63/64/65 are scam tokens — their withdrawals are excluded
+ * Spot markets 63/64/65 are scam tokens — their withdrawals are excluded
  * from the totals and reported separately under `scamWithdrawals`.
  *
  * Output: a JSON breakdown per authority / per user account / per token, plus
@@ -48,7 +48,7 @@ const ATTACKER_AUTHORITIES: string[] = [
 ];
 
 // Spot markets flagged as scam tokens — excluded from withdrawal totals.
-const SCAM_MARKET_INDEXES = new Set([62, 63, 64, 65]);
+const SCAM_MARKET_INDEXES = new Set([63, 64, 65]);
 
 const DATA_API_BASE = "https://data.api.drift.trade";
 
@@ -318,7 +318,7 @@ async function main(): Promise<void> {
     period: `${year}/${month}`,
     driftProgramId: DRIFT_PROGRAM_ID,
     scamMarketIndexes: [...SCAM_MARKET_INDEXES].sort((a, b) => a - b),
-    note: "notionalWithdrawn = sum over withdraw records of amount * oraclePrice (both human-readable from the data API). Spot markets 62/63/64/65 are scam tokens, excluded from totals and listed under scamWithdrawals.",
+    note: "notionalWithdrawn = sum over withdraw records of amount * oraclePrice (both human-readable from the data API). Spot markets 63/64/65 are scam tokens, excluded from totals and listed under scamWithdrawals.",
     attackerAuthorities: ATTACKER_AUTHORITIES,
     sumNotionalWithdrawn: fmt(grandTotal),
     breakdown,

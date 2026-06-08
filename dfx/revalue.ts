@@ -59,7 +59,7 @@ const PROTOCOL_AUTHORITY = "HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF";
  * Applied before the users-owned sum, so the supply accounting reflects them.
  *
  * - amdLor8dLQD2sTbedx8SgbKYbxWpCEtAW9iiZoz4kZX is a liquidator who liquidated
- *   the scam-token markets (62/63/64/65). Those markets are excluded everywhere
+ *   the scam-token markets (63/64/65). Those markets are excluded everywhere
  *   else, so his position can't be priced from the snapshot; his backtracked
  *   amount is $646.69, assigned here directly.
  */
@@ -71,7 +71,7 @@ const BORROW_LEND_OVERRIDES: Record<
     usd: "646.69",
     breakdownKey: "liquidator_scam_token_backtrack",
     reason:
-      "liquidator who liquidated the scam-token markets (62/63/64/65); backtracked amount = $646.69",
+      "liquidator who liquidated the scam-token markets (63/64/65); backtracked amount = $646.69",
   },
 };
 

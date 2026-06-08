@@ -39,7 +39,7 @@ export function usdToQuote(usd: string): BN {
 /**
  * Read `sumNotionalWithdrawn` (USD) from an attacker-withdrawals JSON report and
  * return it as a quote BN. This is the total notional the attackers withdrew,
- * already excluding the scam-token markets (62/63/64/65) by construction of
+ * already excluding the scam-token markets (63/64/65) by construction of
  * that report.
  */
 export function readAttackerWithdrawnQuote(jsonPath: string): {
@@ -84,7 +84,11 @@ export function loadSpotBalances(csvPath: string): SpotBalanceRow[] {
     const remainingStr = (rec.remainingBalance ?? "").trim();
     if (!Number.isFinite(marketIndex) || !Number.isFinite(decimals)) continue;
     if (!/^-?\d+$/.test(remainingStr)) continue;
-    rows.push({ marketIndex, decimals, remainingRaw: new BN(remainingStr, 10) });
+    rows.push({
+      marketIndex,
+      decimals,
+      remainingRaw: new BN(remainingStr, 10),
+    });
   }
   return rows;
 }

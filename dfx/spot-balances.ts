@@ -19,7 +19,7 @@
  * like USDC-1 (vault reads 0, but ~472,842 USDC-1 still owed) are valued
  * correctly with no manual adjustment.
  *
- * Scam-token markets (62/63/64/65) are excluded entirely.
+ * Scam-token markets (63/64/65) are excluded entirely.
  *
  * Output: a CSV with one row per (non-scam) spot market. `revalue.ts` values the
  * `remainingBalance` column against the spot oracle CSV.
@@ -53,7 +53,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ZERO = new BN(0);
 
 /** Spot markets flagged as scam tokens — excluded from the snapshot entirely. */
-const SCAM_MARKET_INDEXES = new Set([62, 63, 64, 65]);
+const SCAM_MARKET_INDEXES = new Set([63, 64, 65]);
 
 const RETRY_OPTS = { retries: 8, baseDelayMs: 1_000, maxDelayMs: 60_000 };
 
