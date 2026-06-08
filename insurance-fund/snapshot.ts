@@ -408,9 +408,9 @@ async function main(): Promise<void> {
     );
   }
 
-  // Attribute each market's protocol-owned IF slice (totalShares − userShares)
-  // to PROTOCOL_AUTHORITY as a synthetic deposit, mirroring dfx/revalue.ts.
-  // Not counted in depositorCount (not a real staker).
+  // 3b. Attribute each market's protocol-owned IF slice (totalShares − userShares)
+  // to PROTOCOL_AUTHORITY as a synthetic deposit, mirroring the protocol-residual
+  // pattern in dfx/revalue.ts. Not counted in depositorCount (not a real staker).
   for (const state of marketStates.values()) {
     const protocolDeposit = valueProtocolStake(state);
     if (!protocolDeposit) continue;
