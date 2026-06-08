@@ -29,6 +29,9 @@ import { parseTokenAccountAmount } from "../../lib/token-account.ts";
 const ZERO = new BN(0);
 const TEN = new BN(10);
 
+/** Sentinel `stakePubkey` for the synthetic protocol-owned IF deposit (no real stake account exists). */
+export const PROTOCOL_OWNED_STAKE_PUBKEY = "protocol_owned";
+
 type RetryOpts = { retries: number; baseDelayMs: number; maxDelayMs: number };
 
 /** On-chain `InsuranceFundStake` shape we care about (decoded by the anchor program). */
@@ -326,22 +329,20 @@ export function valueStake(
 
 /**
  * Value the protocol-owned slice of a market's Insurance Fund as a synthetic
- * deposit attributed to `protocolAuthority`. The protocol slice is
- * `totalIfShares − userIfShares` — shares tracked directly on the market with no
- * `InsuranceFundStake` account. Mirrors dfx/revalue.ts attributing the DFX
- * protocol residual to the same wallet.
+ * deposit. The protocol slice is `totalIfShares − userIfShares` — shares
+ * tracked directly on the market with no `InsuranceFundStake` account. Mirrors
+ * dfx/revalue.ts's protocol residual.
  *
- * Returns null when the slice is <= 0 (no protocol-owned shares). A strictly
- * negative slice cannot occur on-chain (user shares never exceed total); if it
- * does, warn and skip rather than emit a negative claim.
+ * The returned deposit carries `stakePubkey = PROTOCOL_OWNED_STAKE_PUBKEY` as a
+ * marker (no real stake account exists). Attributing it to the protocol wallet
+ * is the caller's job (it keys the deposit under the protocol authority).
  *
- * `protocolAuthority` is accepted for symmetry with the user-stake path and to
- * make the attribution explicit at the call site; the returned deposit is keyed
- * to the protocol via the "protocol_owned" marker rather than a stake pubkey.
+ * Returns null when the slice is <= 0. A strictly negative slice cannot occur
+ * on-chain (user shares never exceed total); if it does, warn and skip rather
+ * than emit a negative claim.
  */
 export function valueProtocolStake(
   marketState: IfMarketState,
-  protocolAuthority: string,
 ): IfDeposit | null {
   const protocolShares = marketState.totalIfShares.sub(
     marketState.userIfShares,
@@ -352,7 +353,7 @@ export function valueProtocolStake(
         `  ⚠ market ${marketState.marketIndex} (${marketState.symbol}): ` +
           `userIfShares (${marketState.userIfShares.toString()}) exceed ` +
           `totalIfShares (${marketState.totalIfShares.toString()}) — ` +
-          `skipping protocol-owned claim for ${protocolAuthority}.`,
+          `skipping protocol-owned claim.`,
       );
     }
     return null;
@@ -366,7 +367,7 @@ export function valueProtocolStake(
 
   return {
     marketIndex: marketState.marketIndex,
-    stakePubkey: "protocol_owned",
+    stakePubkey: PROTOCOL_OWNED_STAKE_PUBKEY,
     ifSharesRaw: protocolShares,
     ifBase: marketState.sharesBase,
     effectiveShares: protocolShares,

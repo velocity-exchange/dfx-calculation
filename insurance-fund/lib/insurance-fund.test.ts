@@ -1,13 +1,12 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, spyOn } from "bun:test";
 
 import { BN, unstakeSharesToAmount } from "@drift-labs/sdk";
 
 import {
+  PROTOCOL_OWNED_STAKE_PUBKEY,
   type IfMarketState,
   valueProtocolStake,
 } from "./insurance-fund.ts";
-
-const PROTOCOL = "HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF";
 
 function marketState(overrides: Partial<IfMarketState> = {}): IfMarketState {
   return {
@@ -28,12 +27,12 @@ function marketState(overrides: Partial<IfMarketState> = {}): IfMarketState {
 describe("valueProtocolStake", () => {
   it("values the protocol slice (total - user shares) against the vault", () => {
     const state = marketState();
-    const deposit = valueProtocolStake(state, PROTOCOL);
+    const deposit = valueProtocolStake(state);
 
     expect(deposit).not.toBeNull();
     const protocolShares = new BN("400"); // 1000 - 600
     expect(deposit!.marketIndex).toBe(0);
-    expect(deposit!.stakePubkey).toBe("protocol_owned");
+    expect(deposit!.stakePubkey).toBe(PROTOCOL_OWNED_STAKE_PUBKEY);
     expect(deposit!.ifSharesRaw.toString()).toBe("400");
     expect(deposit!.effectiveShares.toString()).toBe("400");
     expect(deposit!.ifBase.toString()).toBe("2"); // sharesBase
@@ -55,25 +54,27 @@ describe("valueProtocolStake", () => {
       totalIfShares: new BN("600"),
       userIfShares: new BN("600"),
     });
-    expect(valueProtocolStake(state, PROTOCOL)).toBeNull();
+    expect(valueProtocolStake(state)).toBeNull();
   });
 
   it("returns null (defensively) when user shares exceed total", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
     const state = marketState({
       totalIfShares: new BN("600"),
       userIfShares: new BN("700"),
     });
-    expect(valueProtocolStake(state, PROTOCOL)).toBeNull();
+    expect(valueProtocolStake(state)).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it("values against the overridden vault balance", () => {
-    const small = valueProtocolStake(marketState(), PROTOCOL)!;
+    const small = valueProtocolStake(marketState())!;
     const big = valueProtocolStake(
       marketState({
         vaultBalance: new BN("2000000000"), // 2x balance
         vaultBalanceSource: "config",
       }),
-      PROTOCOL,
     )!;
     // Same shares, double the backing → double the token amount.
     expect(big.tokenAmount.toString()).toBe(
