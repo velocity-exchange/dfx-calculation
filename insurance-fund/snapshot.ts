@@ -36,9 +36,12 @@ import {
   type IfConfig,
   type IfDeposit,
   type IfMarketState,
+  type SurplusItem,
   applyBalanceOverride,
   fetchAllIfStakes,
   readIfMarketStates,
+  rebaseShares,
+  redistributeSurplus,
   toUi,
   valueProtocolStake,
   valueStake,
@@ -176,6 +179,15 @@ type IfMarketSnapshot = {
   sharesBase: string;
   /** Number of staker deposits (with non-zero shares) in this market. */
   depositorCount: number;
+  /**
+   * Vault surplus reattributed across non-requested shares: `vaultBalance −
+   * Σ tokenAmount`. This is the appreciation forfeited by open-request stakers
+   * that stays in the vault on-chain. "0" when there are no open requests.
+   */
+  surplusRedistributed: string;
+  surplusRedistributedUi: string;
+  /** Shares eligible for surplus (`totalIfShares − Σ requested shares`). */
+  nonRequestedShares: string;
 };
 
 type IfDepositSnapshot = {
@@ -184,8 +196,22 @@ type IfDepositSnapshot = {
   ifShares: string;
   ifBase: string;
   effectiveShares: string;
+  /**
+   * Reconciled claim INCLUDING redistributed surplus
+   * (`preRedistributionTokenAmount + surplusShare`). Σ across a market equals
+   * the vault balance.
+   */
   tokenAmount: string;
   tokenAmountUi: string;
+  /**
+   * The per-staker value BEFORE surplus redistribution: raw units the shares
+   * redeem for, capped at the locked amount for open withdraw requests. This is
+   * the value that matches the Drift UI.
+   */
+  preRedistributionTokenAmount: string;
+  preRedistributionTokenAmountUi: string;
+  /** This deposit's slice of the market surplus (0 for fully-requested stakes). */
+  surplusShare: string;
   costBasis: string;
   lastWithdrawRequestShares: string;
   lastWithdrawRequestValue: string;
@@ -209,8 +235,13 @@ function depositToSnapshot(d: IfDeposit, decimals: number): IfDepositSnapshot {
     ifShares: d.ifSharesRaw.toString(10),
     ifBase: d.ifBase.toString(10),
     effectiveShares: d.effectiveShares.toString(10),
+    // tokenAmount holds the reconciled total. Until the redistribution pass runs
+    // it equals the pre-redistribution value; the pass adds surplusShare to it.
     tokenAmount: d.tokenAmount.toString(10),
     tokenAmountUi: toUi(d.tokenAmount, decimals),
+    preRedistributionTokenAmount: d.tokenAmount.toString(10),
+    preRedistributionTokenAmountUi: toUi(d.tokenAmount, decimals),
+    surplusShare: "0",
     costBasis: d.costBasis.toString(10),
     lastWithdrawRequestShares: d.lastWithdrawRequestShares.toString(10),
     lastWithdrawRequestValue: d.lastWithdrawRequestValue.toString(10),
@@ -230,6 +261,9 @@ const CSV_COLUMNS = [
   "effectiveShares",
   "tokenAmount",
   "tokenAmountUi",
+  "preRedistributionTokenAmount",
+  "preRedistributionTokenAmountUi",
+  "surplusShare",
   "costBasis",
   "lastWithdrawRequestShares",
   "lastWithdrawRequestValue",
@@ -428,6 +462,59 @@ async function main(): Promise<void> {
     marketRows.push({ authority: PROTOCOL_AUTHORITY, deposit: depositSnap });
   }
 
+  // 3c. Redistribute each market's vault surplus across non-requested shares.
+  // Open-request stakers are valued at min(current, locked); the appreciation
+  // they forfeit stays in the vault on-chain and accrues to the holders who
+  // remain. Reproduce that here so the reconciled claims sum back to the vault.
+  const surplusByMarket = new Map<
+    number,
+    { surplus: BN; nonRequestedTotal: BN }
+  >();
+  for (const [mi, state] of marketStates) {
+    const rows = rowsByMarket.get(mi);
+    if (!rows || rows.length === 0) continue;
+
+    const items: SurplusItem[] = rows.map(({ deposit }) => {
+      const effectiveShares = new BN(deposit.effectiveShares, 10);
+      // Rebase the raw withdraw-request shares to the market's current base,
+      // matching how valueStake values the (capped) requested portion.
+      const requestedShares = rebaseShares(
+        new BN(deposit.lastWithdrawRequestShares, 10),
+        new BN(deposit.ifBase, 10),
+        state.sharesBase,
+      );
+      const nonRequestedShares = BN.max(
+        new BN(0),
+        effectiveShares.sub(requestedShares),
+      );
+      return {
+        tokenAmount: new BN(deposit.preRedistributionTokenAmount, 10),
+        nonRequestedShares,
+      };
+    });
+
+    const { surplus, nonRequestedTotal, surplusShares } = redistributeSurplus(
+      state.vaultBalance,
+      items,
+    );
+    surplusByMarket.set(mi, { surplus, nonRequestedTotal });
+
+    if (surplus.gt(new BN(0)) && nonRequestedTotal.lte(new BN(0))) {
+      console.warn(
+        `  ⚠ market ${mi} (${state.symbol}): surplus ${surplus.toString()} ` +
+          `cannot be redistributed — every share is under an open withdraw request.`,
+      );
+    }
+
+    rows.forEach(({ deposit }, i) => {
+      const share = surplusShares[i];
+      const total = new BN(deposit.preRedistributionTokenAmount, 10).add(share);
+      deposit.surplusShare = share.toString(10);
+      deposit.tokenAmount = total.toString(10);
+      deposit.tokenAmountUi = toUi(total, state.decimals);
+    });
+  }
+
   // Stable ordering: sort each authority's deposits by market index.
   for (const list of Object.values(byAuthority)) {
     list.sort((a, b) => a.marketIndex - b.marketIndex);
@@ -455,6 +542,16 @@ async function main(): Promise<void> {
       userIfShares: state.userIfShares.toString(10),
       sharesBase: state.sharesBase.toString(10),
       depositorCount: depositorCountByMarket.get(mi) ?? 0,
+      surplusRedistributed: (surplusByMarket.get(mi)?.surplus ?? new BN(0)).toString(
+        10,
+      ),
+      surplusRedistributedUi: toUi(
+        surplusByMarket.get(mi)?.surplus ?? new BN(0),
+        state.decimals,
+      ),
+      nonRequestedShares: (
+        surplusByMarket.get(mi)?.nonRequestedTotal ?? new BN(0)
+      ).toString(10),
     };
   }
 

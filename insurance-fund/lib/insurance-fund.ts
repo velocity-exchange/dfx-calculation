@@ -379,6 +379,86 @@ export function valueProtocolStake(
   };
 }
 
+/** One deposit's inputs to surplus redistribution. */
+export type SurplusItem = {
+  /** The deposit's snapshot value (capped at the locked amount for open requests). */
+  tokenAmount: BN;
+  /**
+   * Shares NOT under an open withdraw request: `effectiveShares −
+   * rebased(lastWithdrawRequestShares)`. Equals `effectiveShares` for stakers
+   * with no open request and for the protocol slice.
+   */
+  nonRequestedShares: BN;
+};
+
+export type SurplusRedistribution = {
+  /** `vaultBalance − Σ tokenAmount`: the forfeited appreciation pooled in the vault. */
+  surplus: BN;
+  /** `Σ nonRequestedShares` (= `totalShares − Σ requestedShares`). */
+  nonRequestedTotal: BN;
+  /**
+   * Per-item surplus allocation, in the same order as `items`. Sums exactly to
+   * `surplus` when `nonRequestedTotal > 0`; all zeros otherwise.
+   */
+  surplusShares: BN[];
+};
+
+/**
+ * Redistribute a market's vault surplus pro-rata across all non-requested shares.
+ *
+ * When a staker with an open withdraw request unstakes, the on-chain program
+ * pays `min(currentValue, lockedValue)` yet burns the full requested shares
+ * (`remove_insurance_fund_stake`): the forfeited appreciation stays in the vault
+ * and accrues to the holders who remain. This reproduces that end state — the
+ * surplus (`vaultBalance − Σ capped claims`) is split across the shares that are
+ * NOT under request (other stakers, the un-requested portion of partial
+ * requesters, and the protocol slice), weighted by those shares.
+ *
+ * Floor-division dust is assigned to the largest non-requested holder so the
+ * allocation sums exactly to `surplus`. If every share is under request
+ * (`nonRequestedTotal == 0`) the surplus cannot be reattributed and all
+ * allocations are zero (the caller should surface this).
+ */
+export function redistributeSurplus(
+  vaultBalance: BN,
+  items: SurplusItem[],
+): SurplusRedistribution {
+  const totalClaims = items.reduce((acc, it) => acc.add(it.tokenAmount), new BN(0));
+  // Claims never exceed the vault (each is capped at its proportional value);
+  // clamp defensively so rounding can't produce a negative surplus.
+  let surplus = vaultBalance.sub(totalClaims);
+  if (surplus.isNeg()) surplus = new BN(0);
+
+  const nonRequestedTotal = items.reduce(
+    (acc, it) => acc.add(it.nonRequestedShares),
+    new BN(0),
+  );
+
+  const surplusShares = items.map(() => new BN(0));
+  if (surplus.lte(ZERO) || nonRequestedTotal.lte(ZERO)) {
+    return { surplus, nonRequestedTotal, surplusShares };
+  }
+
+  let allocated = new BN(0);
+  let largestIdx = 0;
+  for (let i = 0; i < items.length; i++) {
+    const share = surplus.mul(items[i].nonRequestedShares).div(nonRequestedTotal);
+    surplusShares[i] = share;
+    allocated = allocated.add(share);
+    if (items[i].nonRequestedShares.gt(items[largestIdx].nonRequestedShares)) {
+      largestIdx = i;
+    }
+  }
+  // Floor division leaves a few base units short; give the remainder to the
+  // largest non-requested holder so Σ(surplusShares) == surplus exactly.
+  const dust = surplus.sub(allocated);
+  if (dust.gt(ZERO)) {
+    surplusShares[largestIdx] = surplusShares[largestIdx].add(dust);
+  }
+
+  return { surplus, nonRequestedTotal, surplusShares };
+}
+
 /**
  * Fetch every `InsuranceFundStake` account on the program via a single
  * discriminator-filtered `getProgramAccounts` scan (anchor's `.all()`).
