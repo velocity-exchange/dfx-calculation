@@ -120,7 +120,10 @@ spot market they staked in), carrying both shares and the token value:
       "totalIfShares": "...",
       "userIfShares": "...",
       "sharesBase": "0",
-      "depositorCount": 42
+      "depositorCount": 42,
+      "surplusRedistributed": "...", // vaultBalance − Σ tokenAmount (forfeited appreciation)
+      "surplusRedistributedUi": "...",
+      "nonRequestedShares": "..." // totalIfShares − Σ requested shares (surplus recipients)
     }
   },
   "byAuthority": {
@@ -131,8 +134,11 @@ spot market they staked in), carrying both shares and the token value:
         "ifShares": "...", // raw shares stored on the stake
         "ifBase": "0",
         "effectiveShares": "...", // ifShares rebased to current sharesBase
-        "tokenAmount": "...", // raw units the shares redeem for
-        "tokenAmountUi": "1.234567",
+        "tokenAmount": "...", // reconciled claim INCLUDING redistributed surplus
+        "tokenAmountUi": "1.234999",
+        "preRedistributionTokenAmount": "...", // value before redistribution (capped for open requests; matches Drift UI)
+        "preRedistributionTokenAmountUi": "1.234567",
+        "surplusShare": "...", // this deposit's slice of the redistributed vault surplus
         "costBasis": "...",
         "lastWithdrawRequestShares": "...",
         "lastWithdrawRequestValue": "...",
@@ -145,13 +151,31 @@ spot market they staked in), carrying both shares and the token value:
 
 Notes:
 
-- `tokenAmount` matches the Drift UI's valuation. When a staker has an open
-  unstake request (`lastWithdrawRequestValue > 0`), the requested shares are
-  valued at the amount locked in at request time (capped against current value)
-  via the SDK's `unstakeSharesToAmountWithOpenRequest`, exactly as the UI's
-  `fetchInsuranceFundData` does; otherwise all shares are valued at the live
-  share price. The raw `lastWithdrawRequest*` fields are still included for audit.
+- `preRedistributionTokenAmount` matches the Drift UI's valuation. When a staker
+  has an open unstake request (`lastWithdrawRequestValue > 0`), the requested
+  shares are valued at the amount locked in at request time (capped against
+  current value) via the SDK's `unstakeSharesToAmountWithOpenRequest`, exactly as
+  the UI's `fetchInsuranceFundData` does; otherwise all shares are valued at the
+  live share price. The raw `lastWithdrawRequest*` fields are still included for
+  audit.
+- `tokenAmount` is the **reconciled** claim: `preRedistributionTokenAmount +
+  surplusShare` (see below). Use it for "what this staker is owed against the full
+  vault"; use `preRedistributionTokenAmount` for the live per-staker UI value.
 - Stakes with zero effective shares (empty/closed positions) are skipped.
+- **Surplus redistribution.** A staker with an open withdraw request is paid
+  `min(currentValue, lockedValue)` on unstake, yet the on-chain program burns the
+  full requested shares (`remove_insurance_fund_stake`): the appreciation they
+  forfeit stays in the vault and accrues to the holders who remain. So the sum of
+  `preRedistributionTokenAmount` across a market is **less** than the vault
+  balance whenever open requests exist — the difference is real tokens you recover
+  on a full vault withdrawal. The snapshot reproduces the end state by splitting
+  that surplus (`surplusRedistributed`) pro-rata across all non-requested shares
+  (`nonRequestedShares` = other stakers, the un-requested portion of partial
+  requesters, and the protocol slice). Each deposit gets a `surplusShare`, folded
+  into `tokenAmount`. Invariant: for every market with `nonRequestedShares > 0`,
+  `Σ tokenAmount` equals the vault balance exactly (floor-division dust goes to
+  the largest holder). If every share is under request the surplus can't be
+  reattributed and the script warns.
 - The protocol-owned slice of each market's Insurance Fund (`totalShares −
   userShares`, tracked on the market with no `InsuranceFundStake` account) is
   attributed to the protocol authority
@@ -173,7 +197,7 @@ Each row is one staker deposit, with `authority` first followed by the same
 attributes as the JSON deposits:
 
 ```
-authority,marketIndex,stakePubkey,ifShares,ifBase,effectiveShares,tokenAmount,tokenAmountUi,costBasis,lastWithdrawRequestShares,lastWithdrawRequestValue,lastWithdrawRequestTs
+authority,marketIndex,stakePubkey,ifShares,ifBase,effectiveShares,tokenAmount,tokenAmountUi,preRedistributionTokenAmount,preRedistributionTokenAmountUi,surplusShare,costBasis,lastWithdrawRequestShares,lastWithdrawRequestValue,lastWithdrawRequestTs
 ```
 
 Rows are sorted by `tokenAmount` descending (largest stakers first), then by

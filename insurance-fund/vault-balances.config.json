@@ -1,0 +1,284 @@
+{
+  "marketOverrides": {
+    "0": {
+      "vaultBalance": "15595120840000",
+      "decimals": 6,
+      "reason": "USDC (market 0) IF vault drained administratively on YYYY-MM-DD; raw base units (6 decimals). 15595120840000 = 15,595,120.84 USDC."
+    },
+    "1": {
+      "vaultBalance": "14352791091478",
+      "decimals": 9,
+      "reason": "SOL (market 1) IF vault drained administratively; raw base units (9 decimals). 14352791091478 = 14,352.791091478 SOL."
+    },
+    "2": {
+      "vaultBalance": "841323475449",
+      "decimals": 9,
+      "reason": "mSOL (market 2) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (841.323475449 mSOL)."
+    },
+    "3": {
+      "vaultBalance": "263403337",
+      "decimals": 8,
+      "reason": "wBTC (market 3) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (2.63403337 wBTC)."
+    },
+    "4": {
+      "vaultBalance": "5073887731",
+      "decimals": 8,
+      "reason": "wETH (market 4) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (50.73887731 wETH)."
+    },
+    "5": {
+      "vaultBalance": "112525369445",
+      "decimals": 6,
+      "reason": "USDT (market 5) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (112525.369445 USDT)."
+    },
+    "6": {
+      "vaultBalance": "2343323677026",
+      "decimals": 9,
+      "reason": "jitoSOL (market 6) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (2343.323677026 jitoSOL)."
+    },
+    "7": {
+      "vaultBalance": "56177935175",
+      "decimals": 6,
+      "reason": "PYTH (market 7) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (56177.935175 PYTH)."
+    },
+    "8": {
+      "vaultBalance": "470565775925",
+      "decimals": 9,
+      "reason": "bSOL (market 8) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (470.565775925 bSOL)."
+    },
+    "9": {
+      "vaultBalance": "7545253023447",
+      "decimals": 9,
+      "reason": "JTO (market 9) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (7545.253023447 JTO)."
+    },
+    "10": {
+      "vaultBalance": "3112666971",
+      "decimals": 6,
+      "reason": "WIF (market 10) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (3112.666971 WIF)."
+    },
+    "11": {
+      "vaultBalance": "85203411989",
+      "decimals": 6,
+      "reason": "JUP (market 11) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (85203.411989 JUP)."
+    },
+    "12": {
+      "vaultBalance": "355205724619",
+      "decimals": 8,
+      "reason": "RENDER (market 12) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (3552.05724619 RENDER)."
+    },
+    "13": {
+      "vaultBalance": "182635628385",
+      "decimals": 6,
+      "reason": "W (market 13) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (182635.628385 W)."
+    },
+    "14": {
+      "vaultBalance": "6414924986046",
+      "decimals": 9,
+      "reason": "TNSR (market 14) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (6414.924986046 TNSR)."
+    },
+    "15": {
+      "vaultBalance": "19103797344162",
+      "decimals": 6,
+      "reason": "DRIFT (market 15) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (19103797.344162 DRIFT)."
+    },
+    "16": {
+      "vaultBalance": "229215708350",
+      "decimals": 9,
+      "reason": "INF (market 16) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (229.21570835 INF)."
+    },
+    "17": {
+      "vaultBalance": "118365829186",
+      "decimals": 9,
+      "reason": "dSOL (market 17) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (118.365829186 dSOL)."
+    },
+    "18": {
+      "vaultBalance": "14300900976",
+      "decimals": 6,
+      "reason": "USDY (market 18) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (14300.900976 USDY)."
+    },
+    "19": {
+      "vaultBalance": "4242413875",
+      "decimals": 6,
+      "reason": "JLP (market 19) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (4242.413875 JLP)."
+    },
+    "20": {
+      "vaultBalance": "758722933763",
+      "decimals": 9,
+      "reason": "POPCAT (market 20) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (758.722933763 POPCAT)."
+    },
+    "21": {
+      "vaultBalance": "27615977113754",
+      "decimals": 9,
+      "reason": "CLOUD (market 21) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (27615.977113754 CLOUD)."
+    },
+    "22": {
+      "vaultBalance": "89559655310",
+      "decimals": 6,
+      "reason": "PYUSD (market 22) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (89559.65531 PYUSD)."
+    },
+    "23": {
+      "vaultBalance": "10932090944505",
+      "decimals": 9,
+      "reason": "USDe (market 23) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (10932.090944505 USDe)."
+    },
+    "24": {
+      "vaultBalance": "168298249170",
+      "decimals": 9,
+      "reason": "sUSDe (market 24) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (168.29824917 sUSDe)."
+    },
+    "25": {
+      "vaultBalance": "9975505999",
+      "decimals": 9,
+      "reason": "BNSOL (market 25) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (9.975505999 BNSOL)."
+    },
+    "26": {
+      "vaultBalance": "34062289181",
+      "decimals": 6,
+      "reason": "MOTHER (market 26) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (34062.289181 MOTHER)."
+    },
+    "27": {
+      "vaultBalance": "255136828",
+      "decimals": 8,
+      "reason": "cbBTC (market 27) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (2.55136828 cbBTC)."
+    },
+    "28": {
+      "vaultBalance": "168028991090",
+      "decimals": 6,
+      "reason": "USDS (market 28) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (168028.99109 USDS)."
+    },
+    "29": {
+      "vaultBalance": "14948358",
+      "decimals": 9,
+      "reason": "META (market 29) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (0.014948358 META)."
+    },
+    "30": {
+      "vaultBalance": "3414184365",
+      "decimals": 6,
+      "reason": "ME (market 30) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (3414.184365 ME)."
+    },
+    "31": {
+      "vaultBalance": "328612366889",
+      "decimals": 6,
+      "reason": "PENGU (market 31) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (328612.366889 PENGU)."
+    },
+    "33": {
+      "vaultBalance": "1164137901",
+      "decimals": 6,
+      "reason": "JLP-1 (market 33) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (1164.137901 JLP-1)."
+    },
+    "34": {
+      "vaultBalance": "534809954778",
+      "decimals": 6,
+      "reason": "USDC-1 (market 34) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (534809.954778 USDC-1)."
+    },
+    "35": {
+      "vaultBalance": "7542907168082",
+      "decimals": 9,
+      "reason": "AI16Z (market 35) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (7542.907168082 AI16Z)."
+    },
+    "36": {
+      "vaultBalance": "1220143589",
+      "decimals": 6,
+      "reason": "TRUMP (market 36) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (1220.143589 TRUMP)."
+    },
+    "37": {
+      "vaultBalance": "831917950",
+      "decimals": 6,
+      "reason": "MELANIA (market 37) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (831.91795 MELANIA)."
+    },
+    "38": {
+      "vaultBalance": "1700626329",
+      "decimals": 6,
+      "reason": "AUSD (market 38) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (1700.626329 AUSD)."
+    },
+    "39": {
+      "vaultBalance": "2243765267",
+      "decimals": 6,
+      "reason": "FARTCOIN (market 39) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (2243.765267 FARTCOIN)."
+    },
+    "40": {
+      "vaultBalance": "23290951801",
+      "decimals": 9,
+      "reason": "JitoSOL-3 (market 40) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (23.290951801 JitoSOL-3)."
+    },
+    "45": {
+      "vaultBalance": "23898811",
+      "decimals": 8,
+      "reason": "zBTC (market 45) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (0.23898811 zBTC)."
+    },
+    "46": {
+      "vaultBalance": "20150514883",
+      "decimals": 6,
+      "reason": "ZEUS (market 46) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (20150.514883 ZEUS)."
+    },
+    "47": {
+      "vaultBalance": "1022653",
+      "decimals": 6,
+      "reason": "USDC-4 (market 47) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (1.022653 USDC-4)."
+    },
+    "48": {
+      "vaultBalance": "270",
+      "decimals": 6,
+      "reason": "USDT-4 (market 48) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (0.00027 USDT-4)."
+    },
+    "49": {
+      "vaultBalance": "16447612919",
+      "decimals": 9,
+      "reason": "SOL-2 (market 49) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (16.447612919 SOL-2)."
+    },
+    "50": {
+      "vaultBalance": "7540760434",
+      "decimals": 9,
+      "reason": "JitoSOL-2 (market 50) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (7.540760434 JitoSOL-2)."
+    },
+    "52": {
+      "vaultBalance": "71509738",
+      "decimals": 9,
+      "reason": "dfdvSOL (market 52) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (0.071509738 dfdvSOL)."
+    },
+    "54": {
+      "vaultBalance": "24041049960",
+      "decimals": 6,
+      "reason": "EURC (market 54) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (24041.04996 EURC)."
+    },
+    "55": {
+      "vaultBalance": "26493307",
+      "decimals": 9,
+      "reason": "PT-fragSOL-31OCT25-3 (market 55) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (0.026493307 PT-fragSOL-31OCT25-3)."
+    },
+    "56": {
+      "vaultBalance": "185530983021",
+      "decimals": 6,
+      "reason": "PUMP (market 56) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (185530.983021 PUMP)."
+    },
+    "57": {
+      "vaultBalance": "28098656539",
+      "decimals": 6,
+      "reason": "syrupUSDC (market 57) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (28098.656539 syrupUSDC)."
+    },
+    "58": {
+      "vaultBalance": "7213974",
+      "decimals": 8,
+      "reason": "LBTC (market 58) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (0.07213974 LBTC)."
+    },
+    "59": {
+      "vaultBalance": "486365330417",
+      "decimals": 8,
+      "reason": "2Z (market 59) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (4863.65330417 2Z)."
+    },
+    "60": {
+      "vaultBalance": "2253519618",
+      "decimals": 6,
+      "reason": "MET (market 60) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (2253.519618 MET)."
+    },
+    "61": {
+      "vaultBalance": "7182776945",
+      "decimals": 6,
+      "reason": "CASH (market 61) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (7182.776945 CASH)."
+    },
+    "62": {
+      "vaultBalance": "238047145",
+      "decimals": 6,
+      "reason": "USD1 (market 62) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (238.047145 USD1)."
+    }
+  }
+}
