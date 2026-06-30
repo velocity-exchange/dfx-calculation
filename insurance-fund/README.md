@@ -179,7 +179,7 @@ Notes:
 - The protocol-owned slice of each market's Insurance Fund (`totalShares −
   userShares`, tracked on the market with no `InsuranceFundStake` account) is
   attributed to the protocol authority
-  `HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF` as a synthetic deposit, mirroring
+  `4JM5vsoGPkMMZCZusMC6rTNZpm4pFweBPQf36vT8yZ8x` as a synthetic deposit, mirroring
   the DFX pipeline (`dfx/revalue.ts`). It appears under that authority in
   `byAuthority` and as a per-market CSV row, identified by `stakePubkey =
   "protocol_owned"` (it is not a real stake account). Markets with no protocol

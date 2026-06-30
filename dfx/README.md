@@ -26,7 +26,7 @@ supply
   `authority_notional.csv`).
 - **protocol-owned shares** — the residual `total − users-owned`, attributed to
   the protocol treasury wallet
-  `HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF` as a borrow-lend number. This
+  `4JM5vsoGPkMMZCZusMC6rTNZpm4pFweBPQf36vT8yZ8x` as a borrow-lend number. This
   makes the by-ownership identity hold exactly by construction.
 
 The two decompositions are reconciled in `dfx/out/dfx_supply_summary.json`.
@@ -195,7 +195,7 @@ for the two dFx phases.
 | --------------------------- | ---------------------------------------------- | ------------------------------------------------- |
 | `--attacker-withdrawals`    | `dfx/snapshots/attacker_withdrawals.json`      | source of `attackers_withdrawn`                   |
 | `--spot-balances`           | `dfx/snapshots/spot-balances.csv`              | source of `remaining_spot_balance`                |
-| `--protocol-authority`      | `HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF` | wallet the protocol-owned residual is attached to |
+| `--protocol-authority`      | `4JM5vsoGPkMMZCZusMC6rTNZpm4pFweBPQf36vT8yZ8x` | wallet the protocol-owned residual is attached to |
 | `--supply-summary-output`   | `dfx/out/dfx_supply_summary.json`              | reconciliation summary                            |
 | `--require-perp-oracle-csv` | off                                            | make a missing perp oracle entry a hard error     |
 

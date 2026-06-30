@@ -5,4 +5,4 @@
  * slice (totalShares − userShares) per market is attributed here too. See
  * dfx/README.md and insurance-fund/README.md.
  */
-export const PROTOCOL_AUTHORITY = "HVoDbY5fWufyposQrdpwsV6w8TkSEi2hS6AjAPz4HRDF";
+export const PROTOCOL_AUTHORITY = "4JM5vsoGPkMMZCZusMC6rTNZpm4pFweBPQf36vT8yZ8x";
