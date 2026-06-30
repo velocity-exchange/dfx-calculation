@@ -158,7 +158,12 @@
     "31": {
       "vaultBalance": "328612366889",
       "decimals": 6,
-      "reason": "PENGU (market 31) IF vault drained after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (328612.366889 PENGU)."
+      "reason": "PENGU (market 31) IF vault drained0 after 2026-06-08; backing = on-chain balance from if_snapshot_06082026.json (328612.366889 PENGU)."
+    },
+    "32": {
+      "vaultBalance": "19447106464533",
+      "decimals": 5,
+      "reason": "BONK (market 34) IF vault drained0 after 2026-06-08;"
     },
     "33": {
       "vaultBalance": "1164137901",
