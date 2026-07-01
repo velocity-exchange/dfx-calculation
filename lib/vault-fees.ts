@@ -10,6 +10,13 @@ const SCALE_1E18 = new BN("1000000000000000000");
 const PERCENTAGE_PRECISION = new BN(1_000_000);
 const SECONDS_PER_YEAR = new BN(365 * 24 * 60 * 60);
 
+// Management fee accrual is frozen at this timestamp for all vaults: 2026-04-01
+// 16:06 UTC. Snapshots taken after this moment must not accrue additional
+// management fee to managers past this point. Profit share is unaffected
+// (it is not time-based — it crystallizes on realized profit above the
+// high-water mark, evaluated at whatever equity a snapshot observes).
+const MANAGEMENT_FEE_CUTOFF_TS = 1775059560;
+
 /**
  * Crystallize vault management fee and profit share, redistributing equity
  * from depositors to the manager. Mirrors the on-chain effect of running
@@ -18,7 +25,9 @@ const SECONDS_PER_YEAR = new BN(365 * 24 * 60 * 60);
  * Inputs and outputs are in QUOTE_PRECISION (1e6 = $1).
  *
  * The mgmt fee is computed as a simple linear accrual since `lastFeeUpdateTs`
- * (vault_equity × rate × dt / year). Profit share uses the on-chain
+ * (vault_equity × rate × dt / year), capped at `MANAGEMENT_FEE_CUTOFF_TS` —
+ * no management fee accrues to managers for time past that cutoff, regardless
+ * of the snapshot's actual timestamp. Profit share uses the on-chain
  * high-water-mark logic: profit = depositor_value − net_deposits −
  * cumulative_profit_share_amount, taxed at `profitShare` per depositor. The
  * manager pays no profit share on their own row.
@@ -48,7 +57,8 @@ export function crystallizeVaultFees(args: {
 
   // ── 1. Management fee accrual (linear since lastFeeUpdateTs) ────────────
   const mgmtFeeRaw = strToBn(vaultSnap.managementFee); // i64, can be negative
-  const dt = Math.max(0, snapshotTsSec - vaultSnap.lastFeeUpdateTs);
+  const mgmtFeeAccrualTsSec = Math.min(snapshotTsSec, MANAGEMENT_FEE_CUTOFF_TS);
+  const dt = Math.max(0, mgmtFeeAccrualTsSec - vaultSnap.lastFeeUpdateTs);
   // mgmtFeeQuote = equityQuote * mgmtFeeRaw * dt / (PERCENTAGE_PRECISION * SECONDS_PER_YEAR)
   let mgmtFeeQuote = equityQuote
     .mul(mgmtFeeRaw)

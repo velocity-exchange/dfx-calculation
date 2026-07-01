@@ -39,6 +39,12 @@ import {
 } from "../lib/aggregate-borrow-lend.ts";
 import { extractPerpMarket } from "../lib/perp-snapshot.ts";
 import {
+  coverageAuthorities,
+  dedupePubkeys,
+  deriveSubaccountPubkeys,
+  userStatsPubkey,
+} from "../lib/subaccount-coverage.ts";
+import {
   bnToStr,
   stableJsonStringify,
   type BorrowLendAggregateSnapshot,
@@ -135,7 +141,8 @@ const setupProcess = () => {
   }
   fs.mkdirSync(path.dirname(flags.output), { recursive: true });
 
-  const { userAccountPubkeys } = readUserAccountsJson(flags.usersJson);
+  const { userAccountPubkeys, csvAuthorityByUserAccount } =
+    readUserAccountsJson(flags.usersJson);
   console.log(
     `Loaded ${userAccountPubkeys.length} user accounts from ${flags.usersJson}`,
   );
@@ -143,6 +150,7 @@ const setupProcess = () => {
   return {
     flags,
     userAccountPubkeys,
+    csvAuthorityByUserAccount,
   };
 };
 
@@ -198,6 +206,115 @@ const snapshotMarkets = (
   );
 
   return { spotMarkets, perpMarkets };
+};
+
+/**
+ * Decode `UserStats.numberOfSubAccountsCreated` from a raw account buffer.
+ * Returns 0 when the account is missing or fails to decode.
+ */
+const decodeSubaccountCount = (
+  driftClient: DriftClient,
+  data: Buffer,
+): number => {
+  try {
+    const stats = driftClient.program.coder.accounts.decode("UserStats", data);
+    return Number(stats.numberOfSubAccountsCreated ?? 0);
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Expand the seed user-account list (from users.json) to EVERY on-chain
+ * subaccount of each affected authority.
+ *
+ * users.json is derived from a spot-balances CSV, so it only lists subaccounts
+ * that held a spot balance at snapshot time. A subaccount whose sole value is a
+ * quote-only perp position (baseAssetAmount == 0 with a residual quoteAssetAmount
+ * of unsettled PnL) has no spot balance, never enters that CSV, and would
+ * otherwise be dropped entirely. Enumerating [0, numberOfSubAccountsCreated) per
+ * authority — the same way the live breakdown does — recovers them.
+ *
+ * Excluded authorities (blacklisted + vaults) are skipped: revalue.ts drops them
+ * anyway, and expanding vault authorities would trip the single-subaccount
+ * sanity check in aggregateBorrowLendByAuthority.
+ */
+const expandToAllSubaccounts = async (
+  connection: Connection,
+  driftClient: DriftClient,
+  seedPubkeys: PublicKey[],
+  csvAuthorityByUserAccount: Map<string, string>,
+  excluded: Set<string>,
+  flags: CliFlags,
+  retryOpts: { retries: number; baseDelayMs: number; maxDelayMs: number },
+): Promise<PublicKey[]> => {
+  const programId = driftClient.program.programId;
+  const authorities = coverageAuthorities(csvAuthorityByUserAccount, excluded);
+  console.log(
+    `Expanding subaccount coverage across ${authorities.length} authorities...`,
+  );
+
+  const statsChunks: string[][] = [];
+  for (let i = 0; i < authorities.length; i += flags.chunkSize) {
+    statsChunks.push(authorities.slice(i, i + flags.chunkSize));
+  }
+
+  const derived: PublicKey[] = [];
+  for (
+    let batchStart = 0;
+    batchStart < statsChunks.length;
+    batchStart += flags.chunksBeforePause
+  ) {
+    const batchEnd = Math.min(
+      batchStart + flags.chunksBeforePause,
+      statsChunks.length,
+    );
+    const batch = statsChunks.slice(batchStart, batchEnd);
+
+    const tasks = batch.map((chunk) => {
+      return async () => {
+        const statsPdas = chunk.map((a) =>
+          userStatsPubkey(programId, new PublicKey(a)),
+        );
+        if (flags.requestDelayMs > 0) await sleep(flags.requestDelayMs);
+        const infos = await withRetry(
+          () =>
+            connection.getMultipleAccountsInfo(statsPdas, {
+              commitment: "confirmed",
+            }),
+          retryOpts,
+        );
+        for (let j = 0; j < chunk.length; j++) {
+          const info = infos[j];
+          if (!info?.data) continue;
+          const count = decodeSubaccountCount(
+            driftClient,
+            Buffer.from(info.data),
+          );
+          if (count <= 0) continue;
+          derived.push(
+            ...deriveSubaccountPubkeys(
+              programId,
+              new PublicKey(chunk[j]),
+              count,
+            ),
+          );
+        }
+      };
+    });
+
+    await limitConcurrency(tasks, flags.concurrency);
+    if (batchEnd < statsChunks.length && flags.pauseMs > 0) {
+      await sleep(flags.pauseMs);
+    }
+  }
+
+  const complete = dedupePubkeys([...seedPubkeys, ...derived]);
+  console.log(
+    `Subaccount coverage: ${seedPubkeys.length} seed + ${derived.length} derived ` +
+      `→ ${complete.length} unique user accounts`,
+  );
+  return complete;
 };
 
 /**
@@ -437,7 +554,8 @@ const writeSnapshot = (
 };
 
 async function main(): Promise<void> {
-  const { flags, userAccountPubkeys } = setupProcess();
+  const { flags, userAccountPubkeys, csvAuthorityByUserAccount } =
+    setupProcess();
   const { connection, driftClient } = await setupDriftClient(flags.rpcUrl);
 
   const { spotMarkets, perpMarkets } = snapshotMarkets(driftClient);
@@ -453,10 +571,27 @@ async function main(): Promise<void> {
   const vaultAuthorities = new Set(vaults.map((v) => v.vault_pubkey));
   console.log(`Found ${vaults.length} vaults`);
 
-  const borrowLendByAuthorityMap = await aggregateBorrowLendByAuthority(
+  // Cover EVERY subaccount of each affected authority, not just those that had a
+  // spot balance in users.json — otherwise quote-only perp subaccounts (zero
+  // base, residual unsettled PnL) are silently dropped.
+  const excluded = new Set<string>([
+    ...BLACKLISTED_AUTHORITIES,
+    ...vaultAuthorities,
+  ]);
+  const allUserAccountPubkeys = await expandToAllSubaccounts(
     connection,
     driftClient,
     userAccountPubkeys,
+    csvAuthorityByUserAccount,
+    excluded,
+    flags,
+    retryOpts,
+  );
+
+  const borrowLendByAuthorityMap = await aggregateBorrowLendByAuthority(
+    connection,
+    driftClient,
+    allUserAccountPubkeys,
     flags,
     retryOpts,
     vaultAuthorities,
